@@ -15,11 +15,15 @@ class QuantumFisher:
     def __init__(self, circuit: ParametricQuantumCircuit):
         self.circuit = circuit
 
+    def update_param(self, params):
+        for i in range(len(params)):
+            self.circuit.set_parameter(i, params[i])
+
     def get_qfisher_matrix(self) -> np.ndarray:
         list_param = []
-        for i in range(self.circuit.get_parameter_count):
+        for i in range(self.circuit.get_parameter_count()):
             list_param.append(self.circuit.get_parameter(i))
-        num_param = self.circuit.get_parameter_count
+        num_param = self.circuit.get_parameter_count()
         # Initialize a numpy array to record the QFIM
         qfim = np.zeros((num_param, num_param))
         # Assign the signs corresponding to the four terms in a QFIM element
@@ -36,21 +40,20 @@ class QuantumFisher:
                     list_param[i] += np.pi / 2 * sign_i
                     list_param[j] += np.pi / 2 * sign_j
                     # Update the parameters in the circuit
-                    # TODO: update_param
+                    self.update_param(list_param)
                     # self.cir.update_param(list_param)
                     # Run the shifted circuit and record the shifted state vector
                     # psi_shift = self.cir().numpy()
                     psi_shift = QuantumState(self.circuit.get_qubit_count())
                     self.circuit.update_quantum_state(psi_shift)
                     # Calculate each term as the fidelity with a sign factor
-                    # TODO
+                    # TODO: innerproduct
                     qfim[i][j] += abs(np.vdot(
-                        psi_shift, psi))**2 * sign_i * sign_j * (-0.5)
+                        psi_shift.get_vector(), psi.get_vector()))**2 * sign_i * sign_j * (-0.5)
                     # De-shift the parameters
                     list_param[i] -= np.pi / 2 * sign_i
                     list_param[j] -= np.pi / 2 * sign_j
-                    # TODO: update_param
-                    self.cir.update_param(list_param)
+                    self.update_param(list_param)
                 if i != j:
                     # The QFIM is symmetric
                     qfim[j][i] = qfim[i][j]
