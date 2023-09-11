@@ -15,15 +15,13 @@ circuit = circuit_circuit()
 # print(cir)
 qf = QuantumFisher(circuit)
 
-list_param = []
-list_param.append(-1 * np.pi / 4)
-list_param.append(-1 * 0.1)
-for i in range(len(list_param)):
-    circuit.set_parameter(i, list_param[i])
+param_list = [[np.pi / 4, 0.1], [np.pi, 0.1], [np.pi / 2, 0.1]]
+correct_values = [[[1, 0], [0, 0.5]], [[1, 0], [0, 0]], [[1, 0], [0, 1]]]
 
-# Calculate the QFIM
-qfim = qf.get_qfisher_matrix()
-print(f'The QFIM at {np.array(list_param)} is \n {qfim.round(14)}.')
-
-correct_value = [[1, 0], [0, 0.5]]
-np.testing.assert_allclose(qfim, correct_value, atol=1e-3)
+for i, param in enumerate(param_list):
+    circuit.set_parameter(0, -1 * param[0])
+    circuit.set_parameter(1, -1 * param[1])
+    # Calculate the QFIM
+    qfim = qf.get_qfisher_matrix()
+    print(f"The QFIM at {np.array(param)} is \n {qfim.round(14)}.")
+    np.testing.assert_allclose(qfim, correct_values[i], atol=1e-3)
