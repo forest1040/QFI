@@ -100,22 +100,77 @@ Jacobian = Callable[
 ]
 
 
+# def run(
+#     theta: List[float],
+#     x: NDArray[np.float_],
+#     y: NDArray[np.float_],
+#     maxiter: Optional[int],
+# ) -> Tuple[float, List[float]]:
+#     result = minimize(
+#         cost_func,
+#         theta,
+#         args=(x, y),
+#         method="BFGS",
+#         jac=_cost_func_grad,
+#         options={"maxiter": maxiter},
+#     )
+#     loss = result.fun
+#     theta_opt = result.x
+#     return loss, theta_opt
+
+
 def run(
+    # cost_func: CostFunc,
+    # jac: Jacobian,
     theta: List[float],
     x: NDArray[np.float_],
     y: NDArray[np.float_],
     maxiter: Optional[int],
 ) -> Tuple[float, List[float]]:
-    result = minimize(
-        cost_func,
-        theta,
-        args=(x, y),
-        method="BFGS",
-        jac=_cost_func_grad,
-        options={"maxiter": maxiter},
-    )
-    loss = result.fun
-    theta_opt = result.x
+    n_iter_no_change: Optional[int] = 5
+    # callback: Optional[Callable[[List[float]], None]] = None
+    tolerance: float = 1e-4
+
+    pr_A = 0.02
+    pr_Bi = 0.8
+    pr_Bt = 0.995
+    pr_ips = 1e-6
+    # Above is hyper parameters.
+    Bix = 0.0
+    Btx = 0.0
+
+    moment = np.zeros(len(theta))
+    vel = 0
+    theta_now = theta
+    maxiter *= len(x)
+    prev_cost = cost_func(theta_now, x, y)
+
+    no_change = 0
+    for iter in range(0, maxiter, 5):
+        grad = _cost_func_grad(
+            theta_now,
+            x[iter % len(x) : iter % len(x) + 5],
+            y[iter % len(y) : iter % len(y) + 5],
+        )
+        moment = moment * pr_Bi + (1 - pr_Bi) * grad
+        vel = vel * pr_Bt + (1 - pr_Bt) * np.dot(grad, grad)
+        Bix = Bix * pr_Bi + (1 - pr_Bi)
+        Btx = Btx * pr_Bt + (1 - pr_Bt)
+        theta_now -= pr_A / (((vel / Btx) ** 0.5) + pr_ips) * (moment / Bix)
+        if (n_iter_no_change is not None) and (iter % len(x) < 5):
+            # if callback is not None:
+            #     callback(theta_now)
+            now_cost = cost_func(theta_now, x, y)
+            if prev_cost - tolerance < now_cost:
+                no_change = no_change + 1
+                if no_change >= n_iter_no_change:
+                    break
+            else:
+                no_change = 0
+            prev_cost = now_cost
+
+    loss = cost_func(theta_now, x, y)
+    theta_opt = theta_now
     return loss, theta_opt
 
 
@@ -245,9 +300,11 @@ num_x = 80
 x_train, y_train = generate_noisy_sine(x_min, x_max, num_x)
 x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 
-
 n_qubit = 4
 depth = 6
+
+# n_qubit = 6
+# depth = 10
 time_step = 0.5
 maxiter = 30
 ansatz = create_qcl_ansatz(n_qubit, depth, time_step, 0)
