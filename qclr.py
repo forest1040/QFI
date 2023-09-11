@@ -128,8 +128,8 @@ def _predict_inner(x_scaled: NDArray[np.float_]) -> NDArray[np.float_]:
 
         circuit = ParametricQuantumCircuit(n_qubit)
         for i in range(n_qubit):
-            circuit.add_RY_gate(i, np.arcsin(x))
-            circuit.add_RZ_gate(i, np.arccos(x * x))
+            circuit.add_RY_gate(i, np.arcsin(x) * 2)
+            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
         circuit.merge_circuit(ansatz)
         circuit.update_quantum_state(state)
@@ -158,8 +158,8 @@ def cost_func(
 def backprop(theta: List[float], x: float, obs: Observable) -> List[float]:
     circuit = ParametricQuantumCircuit(n_qubit)
     for i in range(n_qubit):
-        circuit.add_RY_gate(i, np.arcsin(x))
-        circuit.add_RZ_gate(i, np.arccos(x * x))
+        circuit.add_RY_gate(i, np.arcsin(x) * 2)
+        circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
     circuit.merge_circuit(ansatz)
 
