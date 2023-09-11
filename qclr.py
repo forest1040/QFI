@@ -16,7 +16,7 @@ from qulacs import (
     ParametricQuantumCircuit,
     QuantumState,
 )
-from qulacs.gate import CNOT, CZ, DenseMatrix
+from qulacs.gate import DenseMatrix
 
 
 n_outputs = 1
@@ -249,17 +249,11 @@ x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 n_qubit = 4
 depth = 6
 time_step = 0.5
-# solver = Bfgs()
 maxiter = 30
 ansatz = create_qcl_ansatz(n_qubit, depth, time_step, 0)
-# qnn = QNNRegressor(circuit, solver)
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
-
-
-# AQCEを使って、振幅エンコードするため、input部分の回路とansatz部分を分けて
-# 毎回マージさせる実行する
 
 
 y_pred = predict(x_test)
