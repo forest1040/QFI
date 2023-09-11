@@ -120,8 +120,6 @@ Jacobian = Callable[
 
 
 def run(
-    # cost_func: CostFunc,
-    # jac: Jacobian,
     theta: List[float],
     x: NDArray[np.float_],
     y: NDArray[np.float_],
