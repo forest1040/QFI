@@ -14,27 +14,20 @@ from scipy.optimize import minimize
 from qulacs import (
     Observable,
     ParametricQuantumCircuit,
-    QuantumGateBase,
     QuantumState,
 )
 from qulacs.gate import CNOT, CZ, DenseMatrix
 
-# from skqulacs.qnn import QNNRegressor
-# from skqulacs.circuit.pre_defined import create_qcl_ansatz
-# from skqulacs.qnn.solver import Bfgs
 
 n_outputs = 1
-# circuit = None
 ansatz = None
-# observables_str = ["Z 0"]
 observables_str = []
 observables = []
 
 
 def _make_fullgate(list_SiteAndOperator, n_qubit):
     I_mat = np.eye(2, dtype=complex)
-    list_Site = [SiteAndOperator[0]
-                 for SiteAndOperator in list_SiteAndOperator]
+    list_Site = [SiteAndOperator[0] for SiteAndOperator in list_SiteAndOperator]
     list_SingleGates = []
     cnt = 0
     for i in range(n_qubit):
@@ -74,8 +67,7 @@ def _create_time_evol_gate(
     # H*P = P*D <-> H = P*D*P^dagger
     diag, eigen_vecs = np.linalg.eigh(ham)
     time_evol_op = np.dot(
-        np.dot(eigen_vecs, np.diag(np.exp(-1j * time_step * diag))
-               ), eigen_vecs.T.conj()
+        np.dot(eigen_vecs, np.diag(np.exp(-1j * time_step * diag))), eigen_vecs.T.conj()
     )  # e^-iHT
 
     # Convert to a qulacs gate
@@ -87,19 +79,7 @@ def _create_time_evol_gate(
 def create_qcl_ansatz(
     n_qubit: int, c_depth: int, time_step: float = 0.5, seed: Optional[int] = 0
 ) -> ParametricQuantumCircuit:
-    # def preprocess_x(x: NDArray[np.float_], index: int) -> float:
-    #     xa = x[index % len(x)]
-    #     clamped: float = min(1, max(-1, xa))
-    #     return clamped
-
     circuit = ParametricQuantumCircuit(n_qubit)
-    # not use add_input
-    # for i in range(n_qubit):
-    # circuit.add_input_RY_gate(i, lambda x, i=i: np.arcsin(preprocess_x(x, i)))
-    # circuit.add_input_RZ_gate(
-    #     i, lambda x, i=i: np.arccos(preprocess_x(x, i) * preprocess_x(x, i))
-    # )
-
     rng = default_rng(seed)
     time_evol_gate = _create_time_evol_gate(n_qubit, time_step)
     for _ in range(c_depth):
@@ -114,8 +94,7 @@ def create_qcl_ansatz(
     return circuit
 
 
-CostFunc = Callable[[List[float],
-                     NDArray[np.float_], NDArray[np.float_]], float]
+CostFunc = Callable[[List[float], NDArray[np.float_], NDArray[np.float_]], float]
 Jacobian = Callable[
     [List[float], NDArray[np.float_], NDArray[np.float_]], NDArray[np.float_]
 ]
@@ -141,31 +120,21 @@ def run(
 
 
 def _predict_inner(x_scaled: NDArray[np.float_]) -> NDArray[np.float_]:
-    # def preprocess_x(x: NDArray[np.float_], index: int) -> float:
-    #     xa = x[index % len(x)]
-    #     clamped: float = min(1, max(-1, xa))
-    #     return clamped
-
     res = []
     for x in x_scaled:
-        # state = circuit.run(x)
         n_qubit = ansatz.get_qubit_count()
         state = QuantumState(n_qubit)
         state.set_zero_state()
 
-        # self._set_input(np.array(x))
         circuit = ParametricQuantumCircuit(n_qubit)
         for i in range(n_qubit):
-            # circuit.add_RY_gate(i, np.arcsin(preprocess_x(x, i)))
-            # circuit.add_RZ_gate(i, np.arccos(preprocess_x(x, i) * preprocess_x(x, i)))
             circuit.add_RY_gate(i, np.arcsin(x))
             circuit.add_RZ_gate(i, np.arccos(x * x))
 
         circuit.merge_circuit(ansatz)
         circuit.update_quantum_state(state)
 
-        r = [observables[i].get_expectation_value(
-            state) for i in range(n_outputs)]
+        r = [observables[i].get_expectation_value(state) for i in range(n_outputs)]
         res.append(r)
     return np.array(res)
 
@@ -175,7 +144,6 @@ def cost_func(
     x_scaled: NDArray[np.float_],
     y_scaled: NDArray[np.float_],
 ) -> float:
-    # ansatz.update_parameters(theta)
     for i in range(len(theta)):
         ansatz.set_parameter(i, theta[i])
 
@@ -188,16 +156,8 @@ def cost_func(
 
 
 def backprop(theta: List[float], x: float, obs: Observable) -> List[float]:
-    # def preprocess_x(x: NDArray[np.float_], index: int) -> float:
-    #     xa = x[index % len(x)]
-    #     clamped: float = min(1, max(-1, xa))
-    #     return clamped
-
-    # self._set_input(np.array(x))
     circuit = ParametricQuantumCircuit(n_qubit)
     for i in range(n_qubit):
-        # circuit.add_RY_gate(i, np.arcsin(preprocess_x(x, i)))
-        # circuit.add_RZ_gate(i, np.arccos(preprocess_x(x, i) * preprocess_x(x, i)))
         circuit.add_RY_gate(i, np.arcsin(x))
         circuit.add_RZ_gate(i, np.arccos(x * x))
 
@@ -206,7 +166,7 @@ def backprop(theta: List[float], x: float, obs: Observable) -> List[float]:
     ret = circuit.backprop(obs)
     ans = [0.0] * len(theta)
     for i in range(len(theta)):
-        ans[i] += ret[i]  # TODO: coef* (pos.coef or 1.0)
+        ans[i] += ret[i]
 
     return ans
 
@@ -228,19 +188,10 @@ def _cost_func_grad(
     n_qubit = ansatz.get_qubit_count()
     for h in range(len(x_scaled)):
         backobs = Observable(n_qubit)
-        if n_outputs >= 2:
-            for i in range(len(observables_str)):
-                backobs.add_operator(
-                    2 * (-y_scaled[h][i] + mto[h][i]) / n_outputs,
-                    observables_str[
-                        i
-                    ],  # 2* because of the derivative of the RMSE error
-                )
-        else:
-            backobs.add_operator(
-                2 * (-y_scaled[h] + mto[h][0]) / n_outputs,
-                observables_str[0],
-            )
+        backobs.add_operator(
+            2 * (-y_scaled[h] + mto[h][0]) / n_outputs,
+            observables_str[0],
+        )
         grad = grad + backprop(theta, x_scaled[h], backobs)
 
     grad /= len(x_scaled)
@@ -252,27 +203,6 @@ def fit(
     y_train: NDArray[np.float_],
     maxiter_or_lr: Optional[int] = None,
 ) -> Tuple[float, List[float]]:
-    if x_train.ndim == 1:
-        x_train = x_train.reshape((-1, 1))
-
-    if y_train.ndim == 1:
-        y_train = y_train.reshape((-1, 1))
-
-    # TODO: scale
-    # if self.do_x_scale:
-    # x_scaled = self.scale_x_scaler.fit_transform(x_train)
-    # else:
-    x_scaled = x_train
-
-    # TODO: scale
-    # if self.do_y_scale:
-    #     y_scaled = self.scale_y_scaler.fit_transform(y_train)
-    # else:
-    y_scaled = y_train
-
-    n_outputs = y_scaled.shape[1]
-
-    # TODO: check self.observables_str
     if observables_str == []:
         for i in range(n_outputs):
             n_qubit = ansatz.get_qubit_count()
@@ -282,7 +212,6 @@ def fit(
             ob = "Z " + str(i)
             observables_str.append(ob)
 
-    # theta_init = circuit.get_parameters()
     theta_init = []
     for i in range(ansatz.get_parameter_count()):
         param = ansatz.get_parameter(i)
@@ -290,30 +219,14 @@ def fit(
 
     return run(
         theta_init,
-        x_scaled,
-        y_scaled,
+        x_train,
+        y_train,
         maxiter_or_lr,
     )
 
 
 def predict(x_test: NDArray[np.float_]) -> NDArray[np.float_]:
-    if x_test.ndim == 1:
-        x_test = x_test.reshape((-1, 1))
-
-    # TODO: scale
-    # if self.do_x_scale:
-    #     x_scaled: NDArray[np.float_] = self.scale_x_scaler.transform(x_test)
-    # else:
-    x_scaled = x_test
-
-    # TODO: scale
-    # if self.do_y_scale:
-    #     y_pred: NDArray[np.float_] = self.scale_y_scaler.inverse_transform(
-    #         self._predict_inner(x_scaled)
-    #     )
-    # else:
-    y_pred = _predict_inner(x_scaled)
-
+    y_pred = _predict_inner(x_test)
     return y_pred
 
 
