@@ -3,12 +3,12 @@
 
 from typing import Optional, Tuple, Union, List
 import numpy as np
-# import paddle
+
 from tqdm import tqdm
 from scipy.special import logsumexp
-# from .ansatz import Circuit
-# import paddle_quantum
+
 from qulacs import ParametricQuantumCircuit, QuantumState
+from qulacs.state import inner_product
 
 
 class QuantumFisher:
@@ -47,9 +47,12 @@ class QuantumFisher:
                     psi_shift = QuantumState(self.circuit.get_qubit_count())
                     self.circuit.update_quantum_state(psi_shift)
                     # Calculate each term as the fidelity with a sign factor
-                    # TODO: innerproduct
-                    qfim[i][j] += abs(np.vdot(
-                        psi_shift.get_vector(), psi.get_vector()))**2 * sign_i * sign_j * (-0.5)
+                    qfim[i][j] += (
+                        abs(inner_product(psi_shift, psi)) ** 2
+                        * sign_i
+                        * sign_j
+                        * (-0.5)
+                    )
                     # De-shift the parameters
                     list_param[i] -= np.pi / 2 * sign_i
                     list_param[j] -= np.pi / 2 * sign_j
