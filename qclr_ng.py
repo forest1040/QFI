@@ -18,6 +18,7 @@ from qulacs import (
 )
 from qulacs.gate import DenseMatrix
 
+from fisher import QuantumFisher
 
 n_outputs = 1
 ansatz = None
@@ -119,6 +120,23 @@ Jacobian = Callable[
 #     return loss, theta_opt
 
 
+def calc_fisher(theta, x_scaled):
+    result = np.zeros((len(theta), len(theta)), dtype=float)
+    for x in x_scaled:
+        circuit = ParametricQuantumCircuit(n_qubit)
+        for i in range(n_qubit):
+            circuit.add_RY_gate(i, np.arcsin(x) * 2)
+            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+
+        for i in range(len(theta)):
+            ansatz.set_parameter(i, theta[i])
+
+        circuit.merge_circuit(ansatz)
+        qf = QuantumFisher(circuit)
+        result += qf.get_qfisher_matrix()
+    return result / len(theta)
+
+
 def run(
     theta: List[float],
     x: NDArray[np.float_],
@@ -126,19 +144,10 @@ def run(
     maxiter: Optional[int],
 ) -> Tuple[float, List[float]]:
     n_iter_no_change: Optional[int] = 5
-    # callback: Optional[Callable[[List[float]], None]] = None
     tolerance: float = 1e-4
 
-    pr_A = 0.02
-    pr_Bi = 0.8
-    pr_Bt = 0.995
-    pr_ips = 1e-6
-    # Above is hyper parameters.
-    Bix = 0.0
-    Btx = 0.0
+    eta = 0.02
 
-    moment = np.zeros(len(theta))
-    vel = 0
     theta_now = theta
     maxiter *= len(x)
     prev_cost = cost_func(theta_now, x, y)
@@ -150,11 +159,8 @@ def run(
             x[iter % len(x) : iter % len(x) + 5],
             y[iter % len(y) : iter % len(y) + 5],
         )
-        moment = moment * pr_Bi + (1 - pr_Bi) * grad
-        vel = vel * pr_Bt + (1 - pr_Bt) * np.dot(grad, grad)
-        Bix = Bix * pr_Bi + (1 - pr_Bi)
-        Btx = Btx * pr_Bt + (1 - pr_Bt)
-        theta_now -= pr_A / (((vel / Btx) ** 0.5) + pr_ips) * (moment / Bix)
+        F = calc_fisher(theta_now, x[iter % len(x) : iter % len(x) + 5])
+        theta_now -= eta * np.linalg.inv(F) @ grad
         if (n_iter_no_change is not None) and (iter % len(x) < 5):
             # if callback is not None:
             #     callback(theta_now)
@@ -321,4 +327,4 @@ plt.plot(
 )
 plt.legend()
 # plt.show()
-plt.savefig("qclr.png")
+plt.savefig("qclr_ng.png")
