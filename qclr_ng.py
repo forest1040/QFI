@@ -134,7 +134,7 @@ def calc_fisher(theta, x_scaled):
         circuit.merge_circuit(ansatz)
         qf = QuantumFisher(circuit)
         result += qf.get_qfisher_matrix()
-    return result / len(theta)
+    return result / len(x_scaled)
 
 
 def run(
@@ -146,7 +146,7 @@ def run(
     n_iter_no_change: Optional[int] = 5
     tolerance: float = 1e-4
 
-    eta = 0.02
+    eta = 0.9
 
     theta_now = theta
     maxiter *= len(x)
