@@ -146,7 +146,7 @@ def run(
     n_iter_no_change: Optional[int] = 5
     tolerance: float = 1e-4
 
-    eta = 0.8
+    eta = 0.9
 
     theta_now = theta
     maxiter *= len(x)

@@ -49,8 +49,9 @@ result = qf.get_qfisher_matrix()
 # print("RY:", np.arcsin(x) * 2)
 # print("RZ:", np.arccos(x * x) * 2)
 print("theta:", theta)
-print("QFI:", result)
-print(result.shape)
+# print("QFI:", result)
+# print(result.shape)
+print("QFI")
 row_size, col_size = result.shape
 for i in range(row_size):
     tmp = ""
