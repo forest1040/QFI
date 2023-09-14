@@ -134,6 +134,14 @@ def calc_fisher(theta, x_scaled):
         circuit.merge_circuit(ansatz)
         qf = QuantumFisher(circuit)
         result += qf.get_qfisher_matrix()
+
+        print("x:", x)
+        print("RY:", np.arcsin(x) * 2)
+        print("RZ:", np.arccos(x * x) * 2)
+        print("theta:", theta)
+        print("QFI:", result)
+
+        break
     return result / len(x_scaled)
 
 
@@ -173,6 +181,8 @@ def run(
             else:
                 no_change = 0
             prev_cost = now_cost
+
+        break
 
     loss = cost_func(theta_now, x, y)
     theta_opt = theta_now
@@ -302,29 +312,10 @@ num_x = 80
 x_train, y_train = generate_noisy_sine(x_min, x_max, num_x)
 x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 
-n_qubit = 4
-depth = 6
+n_qubit = 2
+depth = 1
 
-# n_qubit = 6
-# depth = 10
 time_step = 0.5
 maxiter = 30
 ansatz = create_qcl_ansatz(n_qubit, depth, time_step, 0)
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
-print("trained parameters", opt_params)
-print("loss", opt_loss)
-
-
-y_pred = predict(x_test)
-# print(y_pred)
-# print(y_pred[:5])
-
-plt.plot(x_test, y_test, "o", label="Test")
-plt.plot(
-    np.sort(np.array(x_test).flatten()),
-    np.array(y_pred)[np.argsort(np.array(x_test).flatten())],
-    label="Prediction",
-)
-plt.legend()
-# plt.show()
-plt.savefig("qclr_ng.png")

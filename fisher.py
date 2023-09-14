@@ -28,6 +28,7 @@ class QuantumFisher:
         qfim = np.zeros((num_param, num_param))
         # Assign the signs corresponding to the four terms in a QFIM element
         list_sign = [[1, 1], [1, -1], [-1, 1], [-1, -1]]
+        # list_sign = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         # Run the circuit and record the current state vector
         psi = QuantumState(self.circuit.get_qubit_count())
         self.circuit.update_quantum_state(psi)
@@ -52,6 +53,7 @@ class QuantumFisher:
                         * sign_i
                         * sign_j
                         * (-0.5)
+                        * 0.25
                     )
                     # De-shift the parameters
                     list_param[i] -= np.pi / 2 * sign_i
