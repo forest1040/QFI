@@ -113,7 +113,8 @@ def run(
             y[iter % len(y) : iter % len(y) + 5],
         )
         F = calc_fisher(theta_now, x[iter % len(x) : iter % len(x) + 5])
-        theta_now -= eta * np.linalg.inv(F) @ grad
+        #theta_now -= eta * np.linalg.inv(F) @ grad
+        theta_now -= F @ grad
         if (n_iter_no_change is not None) and (iter % len(x) < 5):
             # if callback is not None:
             #     callback(theta_now)

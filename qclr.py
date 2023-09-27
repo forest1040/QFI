@@ -85,16 +85,16 @@ def run(
     # callback: Optional[Callable[[List[float]], None]] = None
     tolerance: float = 1e-4
 
-    pr_A = 0.02
-    pr_Bi = 0.8
-    pr_Bt = 0.995
-    pr_ips = 1e-6
-    # Above is hyper parameters.
-    Bix = 0.0
-    Btx = 0.0
+    # pr_A = 0.02
+    # pr_Bi = 0.8
+    # pr_Bt = 0.995
+    # pr_ips = 1e-6
+    # # Above is hyper parameters.
+    # Bix = 0.0
+    # Btx = 0.0
 
-    moment = np.zeros(len(theta))
-    vel = 0
+    #moment = np.zeros(len(theta))
+    #vel = 0
     theta_now = theta
     maxiter *= len(x)
     prev_cost = cost_func(theta_now, x, y)
@@ -106,11 +106,12 @@ def run(
             x[iter % len(x) : iter % len(x) + 5],
             y[iter % len(y) : iter % len(y) + 5],
         )
-        moment = moment * pr_Bi + (1 - pr_Bi) * grad
-        vel = vel * pr_Bt + (1 - pr_Bt) * np.dot(grad, grad)
-        Bix = Bix * pr_Bi + (1 - pr_Bi)
-        Btx = Btx * pr_Bt + (1 - pr_Bt)
-        theta_now -= pr_A / (((vel / Btx) ** 0.5) + pr_ips) * (moment / Bix)
+        # moment = moment * pr_Bi + (1 - pr_Bi) * grad
+        # vel = vel * pr_Bt + (1 - pr_Bt) * np.dot(grad, grad)
+        # Bix = Bix * pr_Bi + (1 - pr_Bi)
+        # Btx = Btx * pr_Bt + (1 - pr_Bt)
+        # theta_now -= pr_A / (((vel / Btx) ** 0.5) + pr_ips) * (moment / Bix)
+        theta_now -= grad
         if (n_iter_no_change is not None) and (iter % len(x) < 5):
             # if callback is not None:
             #     callback(theta_now)
