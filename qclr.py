@@ -18,6 +18,8 @@ from qulacs import (
 )
 from qulacs.gate import DenseMatrix
 
+from backprop import python_backprop
+
 
 n_outputs = 1
 ansatz = None
@@ -168,7 +170,8 @@ def backprop(theta: List[float], x: float, obs: Observable) -> List[float]:
 
     circuit.merge_circuit(ansatz)
 
-    ret = circuit.backprop(obs)
+    # ret = circuit.backprop(obs)
+    ret = python_backprop(circuit, obs)
     ans = [0.0] * len(theta)
     for i in range(len(theta)):
         ans[i] += ret[i]
