@@ -25,72 +25,26 @@ observables_str = []
 observables = []
 
 
-def _make_fullgate(list_SiteAndOperator, n_qubit):
-    I_mat = np.eye(2, dtype=complex)
-    list_Site = [SiteAndOperator[0] for SiteAndOperator in list_SiteAndOperator]
-    list_SingleGates = []
-    cnt = 0
-    for i in range(n_qubit):
-        if i in list_Site:
-            list_SingleGates.append(list_SiteAndOperator[cnt][1])
-            cnt += 1
-        else:
-            list_SingleGates.append(I_mat)
-    return reduce(np.kron, list_SingleGates)
-
-
-def _make_hamiltonian(
-    n_qubit, rng: Optional[Generator] = None, seed: Optional[int] = 0
-):
-    if rng is None:
-        rng = default_rng(seed)
-    X_mat = np.array([[0, 1], [1, 0]])
-    Z_mat = np.array([[1, 0], [0, -1]])
-    ham = np.zeros((2**n_qubit, 2**n_qubit), dtype=complex)
-    for i in range(n_qubit):
-        Jx = rng.uniform(-1.0, 1.0)
-        ham += Jx * _make_fullgate([[i, X_mat]], n_qubit)
-        for j in range(i + 1, n_qubit):
-            J_ij = rng.uniform(-1.0, 1.0)
-            ham += J_ij * _make_fullgate([[i, Z_mat], [j, Z_mat]], n_qubit)
-    return ham
-
-
-def _create_time_evol_gate(
-    n_qubit, time_step=0.77, rng: Optional[Generator] = None, seed: Optional[int] = 0
-):
-    if rng is None:
-        rng = default_rng(seed)
-
-    ham = _make_hamiltonian(n_qubit, rng)
-    # Create time evolution operator by diagonalization.
-    # H*P = P*D <-> H = P*D*P^dagger
-    diag, eigen_vecs = np.linalg.eigh(ham)
-    time_evol_op = np.dot(
-        np.dot(eigen_vecs, np.diag(np.exp(-1j * time_step * diag))), eigen_vecs.T.conj()
-    )  # e^-iHT
-
-    # Convert to a qulacs gate
-    time_evol_gate = DenseMatrix([i for i in range(n_qubit)], time_evol_op)
-
-    return time_evol_gate
-
-
-def create_qcl_ansatz(
-    n_qubit: int, c_depth: int, time_step: float = 0.5, seed: Optional[int] = 0
+def create_farhi_neven_ansatz(
+    n_qubit: int, c_depth: int, seed: Optional[int] = 0
 ) -> ParametricQuantumCircuit:
     circuit = ParametricQuantumCircuit(n_qubit)
+    zyu = list(range(n_qubit))
     rng = default_rng(seed)
-    time_evol_gate = _create_time_evol_gate(n_qubit, time_step)
     for _ in range(c_depth):
-        circuit.add_gate(time_evol_gate)
-        for i in range(n_qubit):
-            angle = 2.0 * np.pi * rng.random()
-            circuit.add_parametric_RX_gate(i, angle)
-            angle = 2.0 * np.pi * rng.random()
-            circuit.add_parametric_RZ_gate(i, angle)
-            angle = 2.0 * np.pi * rng.random()
-            circuit.add_parametric_RX_gate(i, angle)
+        rng.shuffle(zyu)
+
+        for i in range(0, n_qubit - 1, 2):
+            angle_x = 2.0 * np.pi * rng.random()
+            angle_y = 2.0 * np.pi * rng.random()
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            circuit.add_parametric_RX_gate(zyu[i], angle_x)
+            circuit.add_parametric_RY_gate(zyu[i], angle_y)
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            angle_x = 2.0 * np.pi * rng.random()
+            angle_y = 2.0 * np.pi * rng.random()
+            circuit.add_parametric_RY_gate(zyu[i], -angle_y)
+            circuit.add_parametric_RX_gate(zyu[i], -angle_x)
     return circuit
 
 
@@ -301,9 +255,8 @@ depth = 6
 
 # n_qubit = 6
 # depth = 10
-time_step = 0.5
 maxiter = 30
-ansatz = create_qcl_ansatz(n_qubit, depth, time_step, 0)
+ansatz = create_farhi_neven_ansatz(n_qubit, depth)
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
