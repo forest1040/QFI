@@ -18,7 +18,7 @@ from qulacsvis import circuit_drawer
 
 n_qubit = 2
 circuit = ParametricQuantumCircuit(n_qubit)
-# x = 0.27392337
+x = 0.27392337
 
 theta = [
     4.002148315014479,
@@ -31,9 +31,9 @@ theta = [
 
 circuit = ParametricQuantumCircuit(n_qubit)
 
-# for i in range(n_qubit):
-#     circuit.add_RY_gate(i, np.arcsin(x) * 2)
-#     circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+for i in range(n_qubit):
+    circuit.add_RY_gate(i, np.arcsin(x) * 2)
+    circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
 circuit.add_parametric_RX_gate(0, theta[0])
 circuit.add_parametric_RZ_gate(0, theta[1])
