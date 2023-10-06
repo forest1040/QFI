@@ -10,7 +10,8 @@ from qulacs.state import inner_product
 
 def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[float]:
     def backprop_inner_product(
-        circ: ParametricQuantumCircuit, bistate: QuantumState
+        # circ: ParametricQuantumCircuit, bistate: QuantumState
+        circ: ParametricQuantumCircuit,
     ) -> List[float]:
         n = circ.get_qubit_count()
         state = QuantumState(n)
@@ -21,79 +22,111 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
         inverse_parametric_gate_position = [-1] * num_gates
         for i in range(circ.get_parameter_count()):
             inverse_parametric_gate_position[circ.get_parametric_gate_position(i)] = i
-        #ans = [0.0] * circ.get_parameter_count()
+        # ans = [0.0] * circ.get_parameter_count()
         param_gates = circ.get_parameter_count()
         qfim = np.zeros((param_gates, param_gates))
 
-        astate = QuantumState(n)
-        for i in range(param_gates - 1, -1, -1):
+        print("inverse_parametric_gate_position:", inverse_parametric_gate_position)
+
+        state_k = QuantumState(n)
+        k = 0
+        for i in range(num_gates - 1, -1, -1):
             gate_now = circ.get_gate(i)
             if inverse_parametric_gate_position[i] != -1:
-                astate.load(state)
-                if gate_now.get_name() == "ParametricRX":
-                    rcpi = gate.RX(gate_now.get_target_index_list()[0], math.pi)
-                elif gate_now.get_name() == "ParametricRY":
-                    rcpi = gate.RY(gate_now.get_target_index_list()[0], math.pi)
-                elif gate_now.get_name() == "ParametricRZ":
-                    rcpi = gate.RZ(gate_now.get_target_index_list()[0], math.pi)
-                else:
-                    raise RuntimeError()
-                rcpi.update_quantum_state(astate)
-                rcpi.update_quantum_state(state)
-                # ans[inverse_parametric_gate_position[i]] = (
-                #     inner_product(bistate, astate).real / 2.0
-                # )
+                state_k.load(state)
+                # if gate_now.get_name() == "ParametricRX":
+                #     rcpi = gate.RX(gate_now.get_target_index_list()[0], math.pi)
+                # elif gate_now.get_name() == "ParametricRY":
+                #     rcpi = gate.RY(gate_now.get_target_index_list()[0], math.pi)
+                # elif gate_now.get_name() == "ParametricRZ":
+                #     rcpi = gate.RZ(gate_now.get_target_index_list()[0], math.pi)
+                # else:
+                #     raise RuntimeError()
+                # rcpi.update_quantum_state(state_k)
+
+                state2 = QuantumState(n)
+                state2.set_zero_state()
+                circ.update_quantum_state(state2)
+                state_l = QuantumState(n)
+                l = 0
+                for j in range(num_gates - 1, -1, -1):
+                    gate_now = circ.get_gate(j)
+                    if inverse_parametric_gate_position[j] != -1:
+                        state_l.load(state2)
+                        # state_l.load(state)
+                        if gate_now.get_name() == "ParametricRX":
+                            rcpi = gate.RX(gate_now.get_target_index_list()[0], math.pi)
+                        elif gate_now.get_name() == "ParametricRY":
+                            rcpi = gate.RY(gate_now.get_target_index_list()[0], math.pi)
+                        elif gate_now.get_name() == "ParametricRZ":
+                            rcpi = gate.RZ(gate_now.get_target_index_list()[0], math.pi)
+                        else:
+                            raise RuntimeError()
+                        # rcpi.update_quantum_state(state_l)
+
+                        print("******")
+                        print(f"k:{k} l:{l}")
+                        print(
+                            "inner_product(state_k, state_l):",
+                            inner_product(state_k, state_l),
+                        )
+                        print(
+                            "inner_product(state_k, state):",
+                            inner_product(state_k, state),
+                        )
+                        print(
+                            "inner_product(state, state_l):",
+                            inner_product(state, state_l),
+                        )
+                        print(
+                            "result:",
+                            4
+                            * (
+                                inner_product(state_k, state_l)
+                                - inner_product(state_k, state)
+                                * inner_product(state, state_l)
+                            ).real,
+                        )
+
+                        qfim[k][l] = (
+                            4
+                            * (
+                                inner_product(state_k, state_l)
+                                - inner_product(state_k, state)
+                                * inner_product(state, state_l)
+                            ).real
+                            # 1
+                            # * (
+                            #     inner_product(state_k, state_l)
+                            #     - inner_product(state_k, bistate)
+                            #     * inner_product(bistate, state_l)
+                            # ).real
+                        )
+                        l += 1
+
+                    agate = gate_now.get_inverse()
+                    agate.update_quantum_state(state_k)
+
+                k += 1
+
             agate = gate_now.get_inverse()
-            #agate.update_quantum_state(bistate)
-            agate.update_quantum_state(state)
-
-            state2 = QuantumState(n)
-            state2.set_zero_state()
-            circ.update_quantum_state(state2)
-            psi = QuantumState(n)
-            for j in range(param_gates - 1, -1, -1):
-                gate_now = circ.get_gate(i)
-                if inverse_parametric_gate_position[i] != -1:
-                    psi.load(state2)
-                    if gate_now.get_name() == "ParametricRX":
-                        rcpi = gate.RX(gate_now.get_target_index_list()[0], math.pi)
-                    elif gate_now.get_name() == "ParametricRY":
-                        rcpi = gate.RY(gate_now.get_target_index_list()[0], math.pi)
-                    elif gate_now.get_name() == "ParametricRZ":
-                        rcpi = gate.RZ(gate_now.get_target_index_list()[0], math.pi)
-                    else:
-                        raise RuntimeError()
-                    rcpi.update_quantum_state(psi)
-                    rcpi.update_quantum_state(state2)
-                    # ans[inverse_parametric_gate_position[i]] = (
-                    #     inner_product(bistate, astate).real / 2.0
-                    # )
-                g = gate_now.get_inverse()
-                #psi.update_quantum_state(bistate)
-                g.update_quantum_state(state2)
-
-                qfim[i][j] += (
-                    #abs(inner_product(psi_shift, psi)) ** 2 * sign_i * sign_j * -1
-                    #abs(inner_product(astate, psi)) ** 2 * -1
-                    abs(inner_product(state, state2)) ** 2
-                )
-                # if i != j:
-                #     # The QFIM is symmetric
-                #     qfim[j][i] = qfim[i][j]
+            # agate.update_quantum_state(bistate)
+            agate.update_quantum_state(state_l)
 
         return qfim
 
-    n = circ.get_qubit_count()
-    state = QuantumState(n)
-    state.set_zero_state()
-    circ.update_quantum_state(state)
-    bistate = QuantumState(n)
-    astate = QuantumState(n)
+    # n = circ.get_qubit_count()
+    # state = QuantumState(n)
+    # state.set_zero_state()
+    # circ.update_quantum_state(state)
+    # bistate = QuantumState(n)
+    # astate = QuantumState(n)
 
-    obs.apply_to_state(astate, state, bistate)
-    bistate.multiply_coef(2)
+    # obs.apply_to_state(astate, state, bistate)
+    # bistate.multiply_coef(2)
 
-    qfim = backprop_inner_product(circ, bistate)
+    # qfim = backprop_inner_product(circ, bistate)
+    qfim = backprop_inner_product(circ)
     return qfim
 
 
@@ -123,8 +156,8 @@ circuit.add_parametric_RX_gate(1, theta[3])
 circuit.add_parametric_RZ_gate(1, theta[4])
 circuit.add_parametric_RX_gate(1, theta[5])
 
-#qf = QuantumFisher(circuit)
-#result = qf.get_qfisher_matrix()
+# qf = QuantumFisher(circuit)
+# result = qf.get_qfisher_matrix()
 
 obs = Observable(n_qubit)
 for i in range(n_qubit):

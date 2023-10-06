@@ -10,6 +10,7 @@ def cpp_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[float]
     return circ.backprop(obs)
 
 
+# bistate: Observableとcirc適用済みの状態
 def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[float]:
     def backprop_inner_product(
         circ: ParametricQuantumCircuit, bistate: QuantumState
