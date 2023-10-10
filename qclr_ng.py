@@ -22,7 +22,10 @@ from qulacs.gate import DenseMatrix
 
 from backprop import python_backprop
 
-from fisher import QuantumFisher
+# from fisher import QuantumFisher
+from back_fisher import fisher
+
+from slove import lu_decomposition, multiply_permutation_matrix, backward_substitution
 
 n_outputs = 1
 ansatz = None
@@ -90,8 +93,16 @@ def calc_fisher(theta, x_scaled):
             ansatz.set_parameter(i, theta[i])
 
         circuit.merge_circuit(ansatz)
-        qf = QuantumFisher(circuit)
-        result += qf.get_qfisher_matrix()
+        # qf = QuantumFisher(circuit)
+        # result += qf.get_qfisher_matrix()
+
+        # backobs = Observable(n_qubit)
+        # backobs.add_operator(
+        #     2 * (-y_scaled[h] + mto[h][0]) / n_outputs,
+        #     observables_str[0],
+        # )
+
+        result = fisher(circuit, observables[0])
     return result / len(x_scaled)
 
 
@@ -209,9 +220,19 @@ def run(
         # theta_now -= F @ grad
         # pprint(calc_inv_matrix(F))
         # theta_now -= grad
-        theta_now -= np.dot(np.linalg.inv(F), grad)
+        # theta_now -= np.dot(np.linalg.inv(F), grad)
         # theta_now -= np.linalg.solve(F, grad)
         # theta_now -= np.linalg.solve(F, np.eye(len(grad))) @ grad
+
+        N = len(theta_now)
+        L, U, P = lu_decomposition(F, N)
+        # LY = PBを解く
+        L = [row[::-1] for row in L[:]][::-1]  # 後退代入と上下逆なので逆順に
+        PB = multiply_permutation_matrix(P, grad, N)[::-1]  # 置換行列をかけて後退代入と上下逆なので逆順に
+        Y = backward_substitution(L, PB, N)[::-1]
+        # UX = Yを解く
+        X = backward_substitution(U, Y, N)
+        theta_now -= np.array(X)
 
         if (n_iter_no_change is not None) and (iter % len(x) < batch_size):
             # if callback is not None:
