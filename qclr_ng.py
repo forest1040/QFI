@@ -95,13 +95,6 @@ def calc_fisher(theta, x_scaled):
         circuit.merge_circuit(ansatz)
         # qf = QuantumFisher(circuit)
         # result += qf.get_qfisher_matrix()
-
-        # backobs = Observable(n_qubit)
-        # backobs.add_operator(
-        #     2 * (-y_scaled[h] + mto[h][0]) / n_outputs,
-        #     observables_str[0],
-        # )
-
         result = fisher(circuit, observables[0])
     return result / len(x_scaled)
 
