@@ -68,24 +68,24 @@ def fisher(circ: ParametricQuantumCircuit, obs: Observable) -> List[float]:
                         qfim[k][l] = (
                             4
                             * (
-                                inner_product(state_k, state_l)
+                                abs(inner_product(state_k, state_l)) ** 2
                                 - (
-                                    inner_product(state_k, state)
-                                    * inner_product(state, state_l)
+                                    abs(inner_product(state_k, state)) ** 2
+                                    * abs(inner_product(state, state_l)) ** 2
                                 )
                             ).real
                         )
                         l += 1
 
                     agate = gate_now.get_inverse()
-                    agate.update_quantum_state(bistate2)
+                    # agate.update_quantum_state(bistate2)
                     # agate.update_quantum_state(state2)
 
                 k += 1
 
             agate = gate_now.get_inverse()
-            agate.update_quantum_state(bistate)
-        #            agate.update_quantum_state(state)
+            # agate.update_quantum_state(bistate)
+            # agate.update_quantum_state(state)
 
         return qfim
 
@@ -103,51 +103,52 @@ def fisher(circ: ParametricQuantumCircuit, obs: Observable) -> List[float]:
     return qfim
 
 
-n_qubit = 2
-circuit = ParametricQuantumCircuit(n_qubit)
-x = 0.27392337
+if __name__ == "__main__":
+    n_qubit = 2
+    circuit = ParametricQuantumCircuit(n_qubit)
+    x = 0.27392337
 
-theta = [
-    4.002148315014479,
-    1.6951199159934145,
-    0.25744424357926954,
-    0.10384619671527331,
-    5.109927617709579,
-    5.735012432197602,
-]
+    theta = [
+        4.002148315014479,
+        1.6951199159934145,
+        0.25744424357926954,
+        0.10384619671527331,
+        5.109927617709579,
+        5.735012432197602,
+    ]
 
-circuit = ParametricQuantumCircuit(n_qubit)
+    circuit = ParametricQuantumCircuit(n_qubit)
 
-for i in range(n_qubit):
-    circuit.add_RY_gate(i, np.arcsin(x) * 2)
-    circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+    for i in range(n_qubit):
+        circuit.add_RY_gate(i, np.arcsin(x) * 2)
+        circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
-circuit.add_parametric_RX_gate(0, theta[0])
-circuit.add_parametric_RZ_gate(0, theta[1])
-circuit.add_parametric_RX_gate(0, theta[2])
-circuit.add_parametric_RX_gate(1, theta[3])
-circuit.add_parametric_RZ_gate(1, theta[4])
-circuit.add_parametric_RX_gate(1, theta[5])
+    circuit.add_parametric_RX_gate(0, theta[0])
+    circuit.add_parametric_RZ_gate(0, theta[1])
+    circuit.add_parametric_RX_gate(0, theta[2])
+    circuit.add_parametric_RX_gate(1, theta[3])
+    circuit.add_parametric_RZ_gate(1, theta[4])
+    circuit.add_parametric_RX_gate(1, theta[5])
 
-# qf = QuantumFisher(circuit)
-# result = qf.get_qfisher_matrix()
+    # qf = QuantumFisher(circuit)
+    # result = qf.get_qfisher_matrix()
 
-obs = Observable(n_qubit)
-for i in range(n_qubit):
-    obs.add_operator(1.0, f"Z {i}")
+    obs = Observable(n_qubit)
+    for i in range(n_qubit):
+        obs.add_operator(1.0, f"Z {i}")
 
-result = fisher(circuit, obs)
+    result = fisher(circuit, obs)
 
-# print("x:", x)
-# print("RY:", np.arcsin(x) * 2)
-# print("RZ:", np.arccos(x * x) * 2)
-print("theta:", theta)
-# print("QFI:", result)
-# print(result.shape)
-print("QFI")
-row_size, col_size = result.shape
-for i in range(row_size):
-    tmp = ""
-    for j in range(col_size):
-        tmp += str("{:.08f}, ".format(result[i][j]))
-    print(tmp)
+    # print("x:", x)
+    # print("RY:", np.arcsin(x) * 2)
+    # print("RZ:", np.arccos(x * x) * 2)
+    print("theta:", theta)
+    # print("QFI:", result)
+    # print(result.shape)
+    print("QFI")
+    row_size, col_size = result.shape
+    for i in range(row_size):
+        tmp = ""
+        for j in range(col_size):
+            tmp += str("{:.08f}, ".format(result[i][j]))
+        print(tmp)

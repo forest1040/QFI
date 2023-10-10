@@ -22,8 +22,9 @@ from qulacs.gate import DenseMatrix
 
 from backprop import python_backprop
 
-# from fisher import QuantumFisher
-from back_fisher import fisher
+from fisher import QuantumFisher
+
+# from back_fisher import fisher
 
 from slove import lu_decomposition, multiply_permutation_matrix, backward_substitution
 
@@ -93,9 +94,9 @@ def calc_fisher(theta, x_scaled):
             ansatz.set_parameter(i, theta[i])
 
         circuit.merge_circuit(ansatz)
-        # qf = QuantumFisher(circuit)
-        # result += qf.get_qfisher_matrix()
-        result = fisher(circuit, observables[0])
+        qf = QuantumFisher(circuit)
+        result += qf.get_qfisher_matrix()
+        # result = fisher(circuit, observables[0])
     return result / len(x_scaled)
 
 
