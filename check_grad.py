@@ -6,6 +6,7 @@ from bp import python_backprop
 n = 2
 observable = Observable(n)
 observable.add_operator(1.0, "X 0")
+# observable.add_operator(1.0, "Z 0")
 circuit = ParametricQuantumCircuit(n)
 
 theta = [2.2, 1.4, 0.8]
