@@ -38,7 +38,7 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
             ans[inverse_parametric_gate_position[i]] = inner_product(
                 obs_state, temp_state
             ).real
-        agate = gate_now.get_inverse()
-        agate.update_quantum_state(obs_state)
-        agate.update_quantum_state(state)
+        inv_gate = gate_now.get_inverse()
+        inv_gate.update_quantum_state(obs_state)
+        inv_gate.update_quantum_state(state)
     return ans
