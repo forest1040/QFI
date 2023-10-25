@@ -18,7 +18,8 @@ from qulacs import (
 )
 from qulacs.gate import DenseMatrix
 
-from backprop import python_backprop
+# from backprop import python_backprop
+from bp import python_backprop
 
 
 n_outputs = 1
@@ -93,8 +94,8 @@ def run(
     # Bix = 0.0
     # Btx = 0.0
 
-    #moment = np.zeros(len(theta))
-    #vel = 0
+    # moment = np.zeros(len(theta))
+    # vel = 0
     theta_now = theta
     maxiter *= len(x)
     prev_cost = cost_func(theta_now, x, y)

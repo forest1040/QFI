@@ -23,6 +23,7 @@ class QuantumFisher:
         # Initialize a numpy array to record the QFIM
         qfim = np.zeros((num_param, num_param))
         # Assign the signs corresponding to the four terms in a QFIM element
+        # list_sign = [[1, 1], [1, -1], [-1, 1], [-1, -1]]
         list_sign = [[1 / 2, 1 / 2], [1 / 2, -1 / 2], [-1 / 2, 1 / 2], [-1 / 2, -1 / 2]]
         # Run the circuit and record the current state vector
         psi = QuantumState(self.circuit.get_qubit_count())
@@ -42,8 +43,20 @@ class QuantumFisher:
                     self.circuit.update_quantum_state(psi_shift)
                     # Calculate each term as the fidelity with a sign factor
                     qfim[i][j] += (
-                        abs(inner_product(psi_shift, psi)) ** 2 * sign_i * sign_j * -1
+                        # abs(inner_product(psi_shift, psi).real) ** 2
+                        abs(inner_product(psi_shift, psi)) ** 2
+                        # inner_product(psi_shift, psi)
+                        * sign_i
+                        * sign_j
+                        * -1
                     )
+                    # qfim[i][j] += (
+                    #     abs(np.vdot(psi_shift.get_vector(), psi.get_vector())) ** 2
+                    #     * sign_i
+                    #     * sign_j
+                    #     # * (-0.5)
+                    #     * -1
+                    # )
                     # De-shift the parameters
                     list_param[i] -= np.pi / 2 * sign_i
                     list_param[j] -= np.pi / 2 * sign_j

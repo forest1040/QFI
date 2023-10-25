@@ -13,6 +13,8 @@ from qulacs.gate import DenseMatrix
 
 from fisher import QuantumFisher
 
+from backprop import python_backprop
+
 from qulacsvis import circuit_drawer
 
 

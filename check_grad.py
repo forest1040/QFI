@@ -1,6 +1,7 @@
 from qulacs import ParametricQuantumCircuit, GradCalculator, Observable
 
-from backprop import python_backprop
+# from backprop import python_backprop
+from bp import python_backprop
 
 n = 2
 observable = Observable(n)
@@ -15,8 +16,9 @@ circuit.add_parametric_RZ_gate(0, theta[2])
 # GradCalculatorの場合
 gcalc = GradCalculator()
 print(gcalc.calculate_grad(circuit, observable))
-# 第三引数に回転角を指定することも可能
-print(gcalc.calculate_grad(circuit, observable, theta))
+# # 第三引数に回転角を指定することも可能
+# print(gcalc.calculate_grad(circuit, observable, theta))
 # Backpropを使って求めた場合
 print(circuit.backprop(observable))
 print(python_backprop(circuit, observable))
+# print(python_backprop(circuit))

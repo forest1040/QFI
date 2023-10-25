@@ -26,8 +26,6 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
             inverse_parametric_gate_position[circ.get_parametric_gate_position(i)] = i
         ans = [0.0] * circ.get_parameter_count()
 
-        bistates = []
-        astates = []
         astate = QuantumState(n)
         for i in range(num_gates - 1, -1, -1):
             gate_now = circ.get_gate(i)
@@ -43,15 +41,12 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
                     raise RuntimeError()
                 rcpi.update_quantum_state(astate)
                 ans[inverse_parametric_gate_position[i]] = (
-                    # inner_product(bistate, astate).real / 2.0
-                    inner_product(bistate, astate).real
+                    inner_product(bistate, astate).real / 2.0
                 )
-                bistates.append(bistate.copy())
-                astates.append(astate.copy())
             agate = gate_now.get_inverse()
             agate.update_quantum_state(bistate)
             agate.update_quantum_state(state)
-        return ans, bistates, astates
+        return ans
 
     n = circ.get_qubit_count()
     state = QuantumState(n)
@@ -61,10 +56,9 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
     astate = QuantumState(n)
 
     obs.apply_to_state(astate, state, bistate)
-    # bistate.multiply_coef(2)
+    bistate.multiply_coef(2)
 
-    ans, bistates, astates = backprop_inner_product(circ, bistate)
-    # return ans, bistates, astates
+    ans = backprop_inner_product(circ, bistate)
     return ans
 
 
@@ -104,5 +98,5 @@ def bench(
     return time.time() - st
 
 
-# t = bench(cpp_backprop, 2, 3)
-# print(t)
+t = bench(cpp_backprop, 2, 3)
+print(t)
