@@ -18,7 +18,7 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
     inverse_parametric_gate_position = [-1] * num_gates
     for i in range(circ.get_parameter_count()):
         inverse_parametric_gate_position[circ.get_parametric_gate_position(i)] = i
-    ans = [0.0] * circ.get_parameter_count()
+    grad = [0.0] * circ.get_parameter_count()
 
     # パラメータゲート適用用
     temp_state = QuantumState(n)
@@ -35,10 +35,10 @@ def python_backprop(circ: ParametricQuantumCircuit, obs: Observable) -> List[flo
             else:
                 raise RuntimeError()
             rcpi.update_quantum_state(temp_state)
-            ans[inverse_parametric_gate_position[i]] = inner_product(
+            grad[inverse_parametric_gate_position[i]] = inner_product(
                 obs_state, temp_state
             ).real
         inv_gate = gate_now.get_inverse()
         inv_gate.update_quantum_state(obs_state)
         inv_gate.update_quantum_state(state)
-    return ans
+    return grad
