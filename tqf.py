@@ -1,3 +1,4 @@
+# https://arxiv.org/pdf/2011.02991.pdf 3:Algorithm
 from typing import List
 import math
 import numpy as np
