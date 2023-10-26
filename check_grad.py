@@ -7,6 +7,7 @@ n = 2
 observable = Observable(n)
 observable.add_operator(1.0, "X 0")
 # observable.add_operator(1.0, "Z 0")
+# observable.add_operator(1.0, "I 0 I 1")
 circuit = ParametricQuantumCircuit(n)
 
 theta = [2.2, 1.4, 0.8]
