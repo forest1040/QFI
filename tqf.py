@@ -35,7 +35,7 @@ def get_differential_gate(g, theta):
         matrix = _differential_gate(np.array([[0, 1], [1, 0]]))
         rcpi = gate.DenseMatrix(g.get_target_index_list()[0], matrix)
     elif g.get_name() == "ParametricRY":
-        matrix = _differential_gate(np.array([[0, 1.0j], [1.0j, 0]]))
+        matrix = _differential_gate(np.array([[0, -1.0j], [1.0j, 0]]))
         rcpi = gate.DenseMatrix(g.get_target_index_list()[0], matrix)
     elif g.get_name() == "ParametricRZ":
         matrix = _differential_gate(np.array([[1, 0], [0, -1]]))
