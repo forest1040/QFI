@@ -3,7 +3,6 @@ from typing import List
 import math
 import numpy as np
 from qulacs import (
-    Observable,
     QuantumCircuit,
     ParametricQuantumCircuit,
     QuantumState,
@@ -12,24 +11,13 @@ from qulacs import (
 from qulacs.state import inner_product
 
 
-# def get_differential_gate(g):
-#     if g.get_name() == "ParametricRX":
-#         rcpi = gate.RX(g.get_target_index_list()[0], -1 * math.pi)
-#     elif g.get_name() == "ParametricRY":
-#         rcpi = gate.RY(g.get_target_index_list()[0], -1 * math.pi)
-#     elif g.get_name() == "ParametricRZ":
-#         rcpi = gate.RZ(g.get_target_index_list()[0], -1 * math.pi)
-#     else:
-#         raise RuntimeError()
-#     return rcpi
-
-
 def get_differential_gate(g, theta):
     def _differential_gate(gate_matrix):
         return (
             -1 * math.sin(theta / 2) / 2 * np.array([[1, 0], [0, 1]])
             + -1 * -1.0j * math.cos(theta / 2) / 2 * gate_matrix
             # qulacsの回転角の方向が逆なので、-1をかけている
+            # Because the direction of the quilacs rotation is reversed, multiplying it by -1.
             # + 1 * -1.0j * math.cos(theta / 2) / 2 * gate_matrix
         )
 
@@ -87,15 +75,15 @@ def fisher(
         phi_string = f"dU{j}" + phi_string
         print(f"phi: {phi_string}")
         L[j][j] = inner_product(phi, phi)
-        for i in range(j - 2, 0, -1):
+        for i in range(j - 1, -1, -1):
             print(f"i:{i}")
-            gate = ansatz.get_gate(i + 2).get_inverse()
-            gate.update_quantum_state(phi)
-            phi_string = f"U{i+2}^" + phi_string
-            print(f"phi: {phi_string}")
             gate = ansatz.get_gate(i + 1).get_inverse()
+            gate.update_quantum_state(phi)
+            phi_string = f"U{i+1}^" + phi_string
+            print(f"phi: {phi_string}")
+            gate = ansatz.get_gate(i).get_inverse()
             gate.update_quantum_state(lambda_state)
-            lambda_string = f"U{i+1}^" + lambda_string
+            lambda_string = f"U{i}^" + lambda_string
             print(f"lmd: {lambda_string}")
             myu = lambda_state.copy()
             myu_string = lambda_string
@@ -105,10 +93,7 @@ def fisher(
             myu_string = f"dU{i}" + myu_string
             print(f"myu: {myu_string}")
             L[i][j] = inner_product(myu, phi)
-
-        # maybe need update_quantum_state for chi
-        # gate = ansatz.get_gate(j)
-        # gate.update_quantum_state(chi)
+            # print(f"<myu|phi>: {myu_string[::-1] + phi_string}")
 
         T[j] = inner_product(chi, phi)
         gate = ansatz.get_gate(j)
@@ -117,23 +102,11 @@ def fisher(
 
     print(f"T: {T}")
     print(f"L: {L}")
-    # for i in range(len(L)):
-    #     print(f"L[{i}]: {L[i]}")
 
     qfi = np.zeros((num_param, num_param))
     for i in range(num_param):
         for j in range(num_param):
-            # qfi[i][j] = L[i][j] - T[i].conj() * T[j]
             if i <= j:
-                # if i == 1 and j > 2:
-                #     print(f"L[i][j]:{L[i][j]}")
-                #     # print(f"T[i]:{T[i]}")
-                #     print(f"T[i].conj():{T[i].conj()}")
-                #     print(f"T[j]:{T[j]}")
-                #     print(f"T[i].conj() * T[j]:{T[i].conj() * T[j]}")
-                #     print(
-                #         f"result: L[i][j] - T[i].conj() * T[j]:{L[i][j] - T[i].conj() * T[j]}"
-                #     )
                 qfi[i][j] = L[i][j] - T[i].conj() * T[j]
             else:
                 qfi[i][j] = L[j][i].conj() - T[i].conj() * T[j]
