@@ -53,12 +53,17 @@ def fisher(
     n = input_circuit.get_qubit_count()
     chi = QuantumState(n)
     input_circuit.update_quantum_state(chi)
+    chi_string = "|in>"
     phi = chi.copy()
+    phi_string = chi_string
     gate = ansatz.get_gate(0)
     gate.update_quantum_state(chi)
+    chi_string = "U0" + chi_string
     psi = chi.copy()
+    psi_string = chi_string
     rcpi = get_differential_gate(gate, theta[0])
     rcpi.update_quantum_state(phi)
+    phi_string = "dU0" + phi_string
 
     num_param = ansatz.get_gate_count()
     # print(f"num_param: {num_param}")
@@ -69,23 +74,36 @@ def fisher(
     L[0][0] = inner_product(phi, phi)
 
     for j in range(1, num_param):
+        print(f"j:{j}")
         lambda_state = psi.copy()
+        lambda_string = psi_string
+        print(f"lmd: {lambda_string}")
         phi = psi.copy()
+        phi_string = psi_string
+        # print(f"phi: {phi_string}")
         gate = ansatz.get_gate(j)
         rcpi = get_differential_gate(gate, theta[j])
         rcpi.update_quantum_state(phi)
+        phi_string = f"dU{j}" + phi_string
+        print(f"phi: {phi_string}")
         L[j][j] = inner_product(phi, phi)
-        print(f"j:{j}")
-        for i in range(j - 1, 0, -1):
+        for i in range(j - 2, 0, -1):
             print(f"i:{i}")
-            gate = ansatz.get_gate(i + 1).get_inverse()
+            gate = ansatz.get_gate(i + 2).get_inverse()
             gate.update_quantum_state(phi)
-            gate = ansatz.get_gate(i).get_inverse()
+            phi_string = f"U{i+2}^" + phi_string
+            print(f"phi: {phi_string}")
+            gate = ansatz.get_gate(i + 1).get_inverse()
             gate.update_quantum_state(lambda_state)
+            lambda_string = f"U{i+1}^" + lambda_string
+            print(f"lmd: {lambda_string}")
             myu = lambda_state.copy()
+            myu_string = lambda_string
             gate = ansatz.get_gate(i)
             rcpi = get_differential_gate(gate, theta[i])
             rcpi.update_quantum_state(myu)
+            myu_string = f"dU{i}" + myu_string
+            print(f"myu: {myu_string}")
             L[i][j] = inner_product(myu, phi)
 
         # maybe need update_quantum_state for chi
@@ -95,6 +113,7 @@ def fisher(
         T[j] = inner_product(chi, phi)
         gate = ansatz.get_gate(j)
         gate.update_quantum_state(psi)
+        psi_string = f"U{j}" + psi_string
 
     print(f"T: {T}")
     print(f"L: {L}")
