@@ -16,10 +16,7 @@ from qulacs import (
 )
 
 
-n_outputs = 1
 ansatz = None
-observables_str = []
-observables = []
 
 
 def create_farhi_neven_ansatz(
@@ -45,6 +42,46 @@ def create_farhi_neven_ansatz(
     return circuit
 
 
+def _predict_inner(x_scaled: NDArray[np.float_]) -> NDArray[np.float_]:
+    res = []
+    for x in x_scaled:
+        n_qubit = ansatz.get_qubit_count()
+        state = QuantumState(n_qubit)
+        state.set_zero_state()
+
+        circuit = ParametricQuantumCircuit(n_qubit)
+        for i in range(n_qubit):
+            circuit.add_RY_gate(i, np.arcsin(x) * 2)
+            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+
+        circuit.merge_circuit(ansatz)
+        circuit.update_quantum_state(state)
+
+        observable = Observable(n_qubit)
+        observable.add_operator(1.0, "Z 0")
+        r = [observable.get_expectation_value(state)]
+        res.append(r)
+    return np.array(res)
+
+
+def predict(x_test: NDArray[np.float_]) -> NDArray[np.float_]:
+    y_pred = _predict_inner(x_test)
+    return y_pred
+
+
+def cost_func(
+    theta: List[float],
+    x_scaled: NDArray[np.float_],
+    y_scaled: NDArray[np.float_],
+) -> float:
+    for i in range(len(theta)):
+        ansatz.set_parameter(i, theta[i])
+
+    y_pred = _predict_inner(x_scaled)
+    cost = mean_squared_error(y_pred, y_scaled)
+    return cost
+
+
 def run(
     theta: List[float],
     x: NDArray[np.float_],
@@ -63,53 +100,11 @@ def run(
     return loss, theta_opt
 
 
-def _predict_inner(x_scaled: NDArray[np.float_]) -> NDArray[np.float_]:
-    res = []
-    for x in x_scaled:
-        n_qubit = ansatz.get_qubit_count()
-        state = QuantumState(n_qubit)
-        state.set_zero_state()
-
-        circuit = ParametricQuantumCircuit(n_qubit)
-        for i in range(n_qubit):
-            circuit.add_RY_gate(i, np.arcsin(x) * 2)
-            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
-
-        circuit.merge_circuit(ansatz)
-        circuit.update_quantum_state(state)
-
-        r = [observables[i].get_expectation_value(state) for i in range(n_outputs)]
-        res.append(r)
-    return np.array(res)
-
-
-def cost_func(
-    theta: List[float],
-    x_scaled: NDArray[np.float_],
-    y_scaled: NDArray[np.float_],
-) -> float:
-    for i in range(len(theta)):
-        ansatz.set_parameter(i, theta[i])
-
-    y_pred = _predict_inner(x_scaled)
-    cost = mean_squared_error(y_pred, y_scaled)
-    return cost
-
-
 def fit(
     x_train: NDArray[np.float_],
     y_train: NDArray[np.float_],
     maxiter_or_lr: Optional[int] = None,
 ) -> Tuple[float, List[float]]:
-    if observables_str == []:
-        for i in range(n_outputs):
-            n_qubit = ansatz.get_qubit_count()
-            observable = Observable(n_qubit)
-            observable.add_operator(1.0, f"Z {i}")
-            observables.append(observable)
-            ob = "Z " + str(i)
-            observables_str.append(ob)
-
     theta_init = []
     for i in range(ansatz.get_parameter_count()):
         param = ansatz.get_parameter(i)
@@ -121,11 +116,6 @@ def fit(
         y_train,
         maxiter_or_lr,
     )
-
-
-def predict(x_test: NDArray[np.float_]) -> NDArray[np.float_]:
-    y_pred = _predict_inner(x_test)
-    return y_pred
 
 
 def generate_noisy_sine(x_min, x_max, num_x):
@@ -159,10 +149,7 @@ opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
 
-
 y_pred = predict(x_test)
-# print(y_pred)
-# print(y_pred[:5])
 
 plt.plot(x_test, y_test, "o", label="Test")
 plt.plot(
