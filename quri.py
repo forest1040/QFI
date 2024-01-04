@@ -11,12 +11,14 @@ from sklearn.metrics import mean_squared_error
 
 from scipy.optimize import minimize
 
-from qulacs import (
-    Observable,
-    ParametricQuantumCircuit,
-    QuantumState,
-)
-from qulacs.gate import DenseMatrix
+# from qulacs import (
+#     Observable,
+#     ParametricQuantumCircuit,
+#     QuantumState,
+# )
+# from qulacs.gate import DenseMatrix
+
+from quri_parts.circuit import UnboundParametricQuantumCircuit, QuantumCircuit, CNOT
 
 # from backprop import python_backprop
 from bp import python_backprop
@@ -30,8 +32,8 @@ observables = []
 
 def create_farhi_neven_ansatz(
     n_qubit: int, c_depth: int, seed: Optional[int] = 0
-) -> ParametricQuantumCircuit:
-    circuit = ParametricQuantumCircuit(n_qubit)
+) -> UnboundParametricQuantumCircuit:
+    circuit = UnboundParametricQuantumCircuit(n_qubit)
     zyu = list(range(n_qubit))
     rng = default_rng(seed)
     for _ in range(c_depth):
@@ -56,6 +58,7 @@ Jacobian = Callable[
     [List[float], NDArray[np.float_], NDArray[np.float_]], NDArray[np.float_]
 ]
 
+# bound_circuit = parametric_circuit.bind_parameters([0.2, 0.3])
 
 # def run(
 #     theta: List[float],
