@@ -9,69 +9,70 @@ from sklearn.metrics import mean_squared_error
 
 from scipy.optimize import minimize
 
-from qulacs import (
-    Observable,
-    ParametricQuantumCircuit,
-    QuantumState,
-)
+# from qulacs import (
+#     Observable,
+#     ParametricQuantumCircuit,
+#     QuantumState,
+# )
 
+from quri_parts.circuit import QuantumCircuit, CNOT
+from quri_parts.core.operator import Operator, pauli_label
+from quri_parts.core.state import GeneralCircuitQuantumState
+from quri_parts.qulacs.sampler import create_qulacs_vector_sampler
 
 ansatz = None
+n_qubit = 4
+depth = 2
+seed = 0
+n_shots = 1000
+
+sampler = create_qulacs_vector_sampler()
 
 
-def create_farhi_neven_ansatz(
-    n_qubit: int, c_depth: int, seed: Optional[int] = 0
-) -> ParametricQuantumCircuit:
-    circuit = ParametricQuantumCircuit(n_qubit)
-    zyu = list(range(n_qubit))
-    rng = default_rng(seed)
-    for _ in range(c_depth):
-        rng.shuffle(zyu)
-
-        for i in range(0, n_qubit - 1, 2):
-            angle_x = 2.0 * np.pi * rng.random()
-            angle_y = 2.0 * np.pi * rng.random()
-            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
-            circuit.add_parametric_RX_gate(zyu[i], angle_x)
-            circuit.add_parametric_RY_gate(zyu[i], angle_y)
-            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
-            angle_x = 2.0 * np.pi * rng.random()
-            angle_y = 2.0 * np.pi * rng.random()
-            circuit.add_parametric_RY_gate(zyu[i], -angle_y)
-            circuit.add_parametric_RX_gate(zyu[i], -angle_x)
-    return circuit
-
-
-def _predict_inner(x_scaled: NDArray[np.float_]) -> NDArray[np.float_]:
+def _predict_inner(
+    x_scaled: NDArray[np.float_], theta: List[float]
+) -> NDArray[np.float_]:
     res = []
     for x in x_scaled:
-        n_qubit = ansatz.get_qubit_count()
-        state = QuantumState(n_qubit)
-        state.set_zero_state()
+        circuit = QuantumCircuit(n_qubit)
 
-        circuit = ParametricQuantumCircuit(n_qubit)
         for i in range(n_qubit):
             circuit.add_RY_gate(i, np.arcsin(x) * 2)
             circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
-        circuit.merge_circuit(ansatz)
-        circuit.update_quantum_state(state)
+        # zyu = list(range(n_qubit))
+        # rng = default_rng(seed)
+        for _ in range(depth):
+            # rng.shuffle(zyu)
 
-        observable = Observable(n_qubit)
-        observable.add_operator(1.0, "Z 0")
-        r = [observable.get_expectation_value(state)]
-        res.append(r)
+            for i in range(0, n_qubit - 1, 2):
+                circuit.add_CNOT_gate(i, i + 1)
+                circuit.add_RX_gate(i, theta[0])
+                circuit.add_RY_gate(i, theta[1])
+                circuit.add_RX_gate(i + 1, theta[2])
+                circuit.add_RY_gate(i + 1, theta[3])
+                circuit.add_CNOT_gate(i, i + 1)
+
+        # observable = Operator(
+        #     {
+        #         pauli_label("Z0"): 1.0,
+        #     }
+        # )
+        sampling_result = sampler(circuit, shots=n_shots)
+        counts = sampling_result
+        # print(counts)
+        # print(counts.get(0))
+
+        if counts.get(0) is not None:
+            res.append(float(counts.get(0) / n_shots))
+        else:
+            res.append(0.0)
+
     return np.array(res)
 
 
-def predict(
-    x_test: NDArray[np.float_],
-    theta: List[float],
-) -> NDArray[np.float_]:
-    for i in range(len(theta)):
-        ansatz.set_parameter(i, theta[i])
-
-    y_pred = _predict_inner(x_test)
+def predict(x_test: NDArray[np.float_], theta: List[float]) -> NDArray[np.float_]:
+    y_pred = _predict_inner(x_test, theta)
     return y_pred
 
 
@@ -80,12 +81,17 @@ def cost_func(
     x_scaled: NDArray[np.float_],
     y_scaled: NDArray[np.float_],
 ) -> float:
-    for i in range(len(theta)):
-        ansatz.set_parameter(i, theta[i])
-
-    y_pred = _predict_inner(x_scaled)
+    y_pred = _predict_inner(x_scaled, theta)
     cost = mean_squared_error(y_pred, y_scaled)
     return cost
+
+
+iter = 0
+
+
+def callback(xk):
+    global iter
+    # print("callback {}: xk={}".format(iter, xk))
 
 
 def run(
@@ -100,6 +106,7 @@ def run(
         args=(x, y),
         method="Nelder-Mead",
         options={"maxiter": maxiter},
+        callback=callback,
     )
     loss = result.fun
     theta_opt = result.x
@@ -111,10 +118,10 @@ def fit(
     y_train: NDArray[np.float_],
     maxiter_or_lr: Optional[int] = None,
 ) -> Tuple[float, List[float]]:
+    rng = default_rng(seed)
     theta_init = []
-    for i in range(ansatz.get_parameter_count()):
-        param = ansatz.get_parameter(i)
-        theta_init.append(param)
+    for _ in range(4 * depth):
+        theta_init.append(2.0 * np.pi * rng.random())
 
     return run(
         theta_init,
@@ -139,18 +146,9 @@ num_x = 80
 x_train, y_train = generate_noisy_sine(x_min, x_max, num_x)
 x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 
-n_qubit = 4
-depth = 2
-
-# n_qubit = 3
-# depth = 6
-
-# n_qubit = 6
-# depth = 10
-
 # maxiter = 2000
-maxiter = 1000
-ansatz = create_farhi_neven_ansatz(n_qubit, depth)
+# maxiter = 1000
+maxiter = 500
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
@@ -165,4 +163,4 @@ plt.plot(
 )
 plt.legend()
 # plt.show()
-plt.savefig("qclr.png")
+plt.savefig("qclr-quri.png")
