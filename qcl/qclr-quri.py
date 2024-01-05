@@ -9,16 +9,12 @@ from sklearn.metrics import mean_squared_error
 
 from scipy.optimize import minimize
 
-# from qulacs import (
-#     Observable,
-#     ParametricQuantumCircuit,
-#     QuantumState,
-# )
-
-from quri_parts.circuit import QuantumCircuit, CNOT
+from quri_parts.circuit import QuantumCircuit, CNOT, UnboundParametricQuantumCircuit
 from quri_parts.core.operator import Operator, pauli_label
 from quri_parts.core.state import GeneralCircuitQuantumState
+
 from quri_parts.qulacs.sampler import create_qulacs_vector_sampler
+from quri_parts.qulacs.estimator import create_qulacs_vector_estimator
 
 ansatz = None
 n_qubit = 4
@@ -27,6 +23,25 @@ seed = 0
 n_shots = 1000
 
 sampler = create_qulacs_vector_sampler()
+estimator = create_qulacs_vector_estimator()
+
+
+def create_farhi_neven_ansatz(
+    n_qubit: int, c_depth: int, seed: Optional[int] = 0
+) -> UnboundParametricQuantumCircuit:
+    circuit = UnboundParametricQuantumCircuit(n_qubit)
+    zyu = list(range(n_qubit))
+    rng = default_rng(seed)
+    for _ in range(c_depth):
+        rng.shuffle(zyu)
+        for i in range(0, n_qubit - 1, 2):
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            circuit.add_ParametricRX_gate(zyu[i])
+            circuit.add_ParametricRY_gate(zyu[i])
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            circuit.add_ParametricRY_gate(zyu[i])
+            circuit.add_ParametricRX_gate(zyu[i])
+    return circuit
 
 
 def _predict_inner(
@@ -34,39 +49,33 @@ def _predict_inner(
 ) -> NDArray[np.float_]:
     res = []
     for x in x_scaled:
-        circuit = QuantumCircuit(n_qubit)
+        circuit = UnboundParametricQuantumCircuit(n_qubit)
 
         for i in range(n_qubit):
             circuit.add_RY_gate(i, np.arcsin(x) * 2)
             circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
-        # zyu = list(range(n_qubit))
-        # rng = default_rng(seed)
-        for _ in range(depth):
-            # rng.shuffle(zyu)
+        bind_circuit = ansatz.bind_parameters(theta)
+        circuit = circuit.combine(bind_circuit)
+        circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
+        observable = Operator(
+            {
+                pauli_label("Z0"): 2.0,
+            }
+        )
+        # v = estimator([observable], [circuit_state])[0].value.real
+        v = estimator(observable, circuit_state).value.real
+        res.append(v)
 
-            for i in range(0, n_qubit - 1, 2):
-                circuit.add_CNOT_gate(i, i + 1)
-                circuit.add_RX_gate(i, theta[0])
-                circuit.add_RY_gate(i, theta[1])
-                circuit.add_RX_gate(i + 1, theta[2])
-                circuit.add_RY_gate(i + 1, theta[3])
-                circuit.add_CNOT_gate(i, i + 1)
+        # sampling_result = sampler(circuit, shots=n_shots)
+        # counts = sampling_result
+        # # print(counts)
+        # # print(counts.get(0))
 
-        # observable = Operator(
-        #     {
-        #         pauli_label("Z0"): 1.0,
-        #     }
-        # )
-        sampling_result = sampler(circuit, shots=n_shots)
-        counts = sampling_result
-        # print(counts)
-        # print(counts.get(0))
-
-        if counts.get(0) is not None:
-            res.append(float(counts.get(0) / n_shots))
-        else:
-            res.append(0.0)
+        # if counts.get(0) is not None:
+        #     res.append(float(counts.get(0) / n_shots))
+        # else:
+        #     res.append(0.0)
 
     return np.array(res)
 
@@ -120,7 +129,7 @@ def fit(
 ) -> Tuple[float, List[float]]:
     rng = default_rng(seed)
     theta_init = []
-    for _ in range(4 * depth):
+    for _ in range(4 * 2 * depth):
         theta_init.append(2.0 * np.pi * rng.random())
 
     return run(
@@ -146,9 +155,11 @@ num_x = 80
 x_train, y_train = generate_noisy_sine(x_min, x_max, num_x)
 x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 
+ansatz = create_farhi_neven_ansatz(n_qubit, depth, seed)
+
 # maxiter = 2000
-# maxiter = 1000
-maxiter = 500
+maxiter = 1000
+# maxiter = 500
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
