@@ -13,8 +13,21 @@ from quri_parts.circuit import QuantumCircuit, CNOT, UnboundParametricQuantumCir
 from quri_parts.core.operator import Operator, pauli_label
 from quri_parts.core.state import GeneralCircuitQuantumState
 
-from quri_parts.qulacs.sampler import create_qulacs_vector_sampler
-from quri_parts.qulacs.estimator import create_qulacs_vector_estimator
+from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
+from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
+
+from quri_parts.qiskit.backend import QiskitSamplingBackend
+from quri_parts.core.sampling import (
+    create_sampler_from_sampling_backend,
+    create_concurrent_sampler_from_sampling_backend,
+)
+from quri_parts.core.estimator.sampling import create_sampling_concurrent_estimator
+from quri_parts.core.measurement import bitwise_commuting_pauli_measurement
+from quri_parts.core.sampling.shots_allocator import (
+    create_equipartition_shots_allocator,
+)
+
+from qiskit_ibm_runtime import QiskitRuntimeService
 
 ansatz = None
 n_qubit = 4
@@ -22,8 +35,22 @@ depth = 2
 seed = 0
 n_shots = 1000
 
-sampler = create_qulacs_vector_sampler()
-estimator = create_qulacs_vector_estimator()
+# qulacs
+if 1:
+    sampler = create_qulacs_vector_concurrent_sampler()
+    estimator = create_qulacs_vector_concurrent_estimator()
+else:
+    # IBMQ
+    service = QiskitRuntimeService()
+    # ibm_algiers / ibm_hanoi /ibmq_kolkata / ibm_cairo
+    device = service.backend("ibm_hanoi")
+    backend = QiskitSamplingBackend(device)
+    # sampler = create_sampler_from_sampling_backend(backend)
+    sampler = create_concurrent_sampler_from_sampling_backend(backend)
+    allocator = create_equipartition_shots_allocator()
+    estimator = create_sampling_concurrent_estimator(
+        n_shots, sampler, bitwise_commuting_pauli_measurement, allocator
+    )
 
 
 def create_farhi_neven_ansatz(
@@ -63,8 +90,8 @@ def _predict_inner(
                 pauli_label("Z0"): 2.0,
             }
         )
-        # v = estimator([observable], [circuit_state])[0].value.real
-        v = estimator(observable, circuit_state).value.real
+        v = estimator([observable], [circuit_state])[0].value.real
+        # v = estimator(observable, circuit_state).value.real
         res.append(v)
 
         # sampling_result = sampler(circuit, shots=n_shots)
@@ -146,7 +173,8 @@ def generate_noisy_sine(x_min, x_max, num_x):
     y_train = [np.sin(np.pi * x[0]) for x in x_train]
     mag_noise = 0.01
     y_train += mag_noise * rng.random(num_x)
-    return np.array(x_train), np.array(y_train)
+    # return np.array(x_train), np.array(y_train)
+    return np.array(x_train).flatten(), np.array(y_train)
 
 
 x_min = -1.0
@@ -158,8 +186,9 @@ x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 ansatz = create_farhi_neven_ansatz(n_qubit, depth, seed)
 
 # maxiter = 2000
-maxiter = 1000
+# maxiter = 1000
 # maxiter = 500
+maxiter = 2
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
