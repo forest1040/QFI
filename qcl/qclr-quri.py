@@ -187,8 +187,8 @@ ansatz = create_farhi_neven_ansatz(n_qubit, depth, seed)
 
 # maxiter = 2000
 # maxiter = 1000
-# maxiter = 500
-maxiter = 2
+maxiter = 500
+# maxiter = 2
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
