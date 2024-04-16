@@ -1,6 +1,9 @@
 from typing import List, Optional, Tuple
 from numpy.typing import NDArray
 
+#from concurrent.futures import ThreadPoolExecutor as PoolExecutor
+from concurrent.futures import ProcessPoolExecutor as PoolExecutor
+
 import numpy as np
 from numpy.random import default_rng
 import matplotlib.pyplot as plt
@@ -13,16 +16,17 @@ from quri_parts.circuit import UnboundParametricQuantumCircuit
 from quri_parts.core.operator import Operator, pauli_label
 from quri_parts.core.state import GeneralCircuitQuantumState
 
-from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
 from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
 
 ansatz = None
 n_qubit = 4
 depth = 2
 seed = 0
+concurrency = 8
+#estimator = create_qulacs_vector_concurrent_estimator()
+executor = PoolExecutor(max_workers=4)
+estimator = create_qulacs_vector_concurrent_estimator(executor, concurrency=concurrency)
 
-sampler = create_qulacs_vector_concurrent_sampler()
-estimator = create_qulacs_vector_concurrent_estimator()
 
 def create_farhi_neven_ansatz(
     n_qubit: int, c_depth: int, seed: Optional[int] = 0
@@ -42,10 +46,35 @@ def create_farhi_neven_ansatz(
     return circuit
 
 
+# def _predict_inner(
+#     x_scaled: NDArray[np.float_], theta: List[float]
+# ) -> NDArray[np.float_]:
+#     res = []
+#     for x in x_scaled:
+#         circuit = UnboundParametricQuantumCircuit(n_qubit)
+
+#         for i in range(n_qubit):
+#             circuit.add_RY_gate(i, np.arcsin(x) * 2)
+#             circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+
+#         bind_circuit = ansatz.bind_parameters(theta)
+#         circuit = circuit.combine(bind_circuit)
+#         circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
+#         observable = Operator(
+#             {
+#                 pauli_label("Z0"): 2.0,
+#             }
+#         )
+#         v = estimator([observable], [circuit_state])[0].value.real
+#         res.append(v)
+#     return np.array(res)
+
 def _predict_inner(
     x_scaled: NDArray[np.float_], theta: List[float]
 ) -> NDArray[np.float_]:
     res = []
+    circuit_states = []
+    observables = []
     for x in x_scaled:
         circuit = UnboundParametricQuantumCircuit(n_qubit)
 
@@ -61,8 +90,19 @@ def _predict_inner(
                 pauli_label("Z0"): 2.0,
             }
         )
-        v = estimator([observable], [circuit_state])[0].value.real
-        res.append(v)
+        circuit_states.append(circuit_state)
+        observables.append(observable)
+        # 割り切れない場合の対応をやっていない
+        if len(circuit_states) == concurrency:
+            vv = estimator(observables, circuit_states) #[0].value.real
+            for v in vv:
+                res.append(v.value.real)
+
+            circuit_states = []
+            observables = []
+    
+    # 本当はここであまりがあれば実行すべき
+
     return np.array(res)
 
 
