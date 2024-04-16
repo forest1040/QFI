@@ -92,9 +92,8 @@ def _predict_inner(
         )
         circuit_states.append(circuit_state)
         observables.append(observable)
-        # 割り切れない場合の対応をやっていない
         if len(circuit_states) == concurrency:
-            vv = estimator(observables, circuit_states) #[0].value.real
+            vv = estimator(observables, circuit_states)
             for v in vv:
                 res.append(v.value.real)
 
