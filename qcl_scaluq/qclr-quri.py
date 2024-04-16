@@ -9,93 +9,36 @@ from sklearn.metrics import mean_squared_error
 
 from scipy.optimize import minimize
 
-# from qiskit_ibm_runtime import (
-#     QiskitRuntimeService,
-#     Sampler,
-#     Estimator,
-#     Session,
-#     Options,
-# )
-from qiskit.primitives import Estimator
+from quri_parts.circuit import UnboundParametricQuantumCircuit
+from quri_parts.core.operator import Operator, pauli_label
+from quri_parts.core.state import GeneralCircuitQuantumState
 
-from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
-from qiskit.quantum_info import SparsePauliOp
-
-
-# service = QiskitRuntimeService()
-# backend = "ibmq_qasm_simulator"  # use the simulator
-# options = Options()
-# options.simulator.seed_simulator = 42
-# options.execution.shots = 1000
-# options.optimization_level = 0  # no optimization
-# options.resilience_level = 0  # no error mitigation
-
-# estimator = Estimator(options=options, backend=backend)
-estimator = Estimator()
+from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
+from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
 
 ansatz = None
-seed = 0
-
 n_qubit = 4
 depth = 2
-param_size = 16
-PauliOpStr = "ZIII"
-# maxiter = 2000
-# maxiter = 1000
-maxiter = 500
-# maxiter = 2
+seed = 0
 
-# n_shots = 1000
-
-
-# def create_farhi_neven_ansatz(
-#     n_qubit: int, c_depth: int, seed: Optional[int] = 0
-# ) -> QuantumCircuit:
-#     circuit = QuantumCircuit(n_qubit)
-#     zyu = list(range(n_qubit))
-#     rng = default_rng(seed)
-#     idx = 0
-#     for _ in range(c_depth):
-#         rng.shuffle(zyu)
-#         for i in range(0, n_qubit - 1, 2):
-#             param_rx = Parameter(f"theta[{idx}]")
-#             idx += 1
-#             param_ry = Parameter(f"theta[{idx}]")
-#             idx += 1
-#             circuit.cx(zyu[i + 1], zyu[i])
-#             circuit.rx(param_rx, zyu[i])
-#             circuit.ry(param_ry, zyu[i])
-#             circuit.cx(zyu[i + 1], zyu[i])
-#             circuit.ry(-1 * param_ry, zyu[i])
-#             circuit.rx(-1 * param_rx, zyu[i])
-#     return circuit
-
+sampler = create_qulacs_vector_concurrent_sampler()
+estimator = create_qulacs_vector_concurrent_estimator()
 
 def create_farhi_neven_ansatz(
     n_qubit: int, c_depth: int, seed: Optional[int] = 0
-) -> QuantumCircuit:
-    circuit = QuantumCircuit(n_qubit)
+) -> UnboundParametricQuantumCircuit:
+    circuit = UnboundParametricQuantumCircuit(n_qubit)
     zyu = list(range(n_qubit))
     rng = default_rng(seed)
-    idx = 0
     for _ in range(c_depth):
         rng.shuffle(zyu)
         for i in range(0, n_qubit - 1, 2):
-            circuit.cx(zyu[i + 1], zyu[i])
-            param_rx = Parameter(f"theta[{idx}]")
-            idx += 1
-            param_ry = Parameter(f"theta[{idx}]")
-            idx += 1
-            circuit.rx(param_rx, zyu[i])
-            circuit.ry(param_ry, zyu[i])
-            circuit.cx(zyu[i + 1], zyu[i])
-            param_rx = Parameter(f"theta[{idx}]")
-            idx += 1
-            param_ry = Parameter(f"theta[{idx}]")
-            idx += 1
-            circuit.ry(param_ry, zyu[i])
-            circuit.rx(param_rx, zyu[i])
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            circuit.add_ParametricRX_gate(zyu[i])
+            circuit.add_ParametricRY_gate(zyu[i])
+            circuit.add_CNOT_gate(zyu[i + 1], zyu[i])
+            circuit.add_ParametricRY_gate(zyu[i])
+            circuit.add_ParametricRX_gate(zyu[i])
     return circuit
 
 
@@ -104,21 +47,22 @@ def _predict_inner(
 ) -> NDArray[np.float_]:
     res = []
     for x in x_scaled:
-        circuit = QuantumCircuit(n_qubit)
+        circuit = UnboundParametricQuantumCircuit(n_qubit)
 
         for i in range(n_qubit):
-            circuit.ry(np.arcsin(x) * 2, i)
-            circuit.rz(np.arccos(x * x) * 2, i)
+            circuit.add_RY_gate(i, np.arcsin(x) * 2)
+            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
 
-        circuit = circuit.compose(ansatz)
-        observable = SparsePauliOp([PauliOpStr], [1.0])
-        job = estimator.run(
-            circuits=[circuit], observables=[observable], parameter_values=[theta]
+        bind_circuit = ansatz.bind_parameters(theta)
+        circuit = circuit.combine(bind_circuit)
+        circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
+        observable = Operator(
+            {
+                pauli_label("Z0"): 2.0,
+            }
         )
-        result = job.result()
-        exp_val = result.values
-        res.append(exp_val)
-
+        v = estimator([observable], [circuit_state])[0].value.real
+        res.append(v)
     return np.array(res)
 
 
@@ -143,6 +87,7 @@ iter = 0
 def callback(xk):
     global iter
     # print("callback {}: xk={}".format(iter, xk))
+    iter += 1
 
 
 def run(
@@ -171,7 +116,7 @@ def fit(
 ) -> Tuple[float, List[float]]:
     rng = default_rng(seed)
     theta_init = []
-    for _ in range(param_size):
+    for _ in range(4 * 2 * depth):
         theta_init.append(2.0 * np.pi * rng.random())
 
     return run(
@@ -200,6 +145,10 @@ x_test, y_test = generate_noisy_sine(x_min, x_max, num_x)
 
 ansatz = create_farhi_neven_ansatz(n_qubit, depth, seed)
 
+# maxiter = 2000
+# maxiter = 1000
+maxiter = 500
+# maxiter = 2
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
@@ -214,4 +163,4 @@ plt.plot(
 )
 plt.legend()
 # plt.show()
-plt.savefig("qclr-qis.png")
+plt.savefig("qclr-quri.png")

@@ -149,7 +149,7 @@ depth = 2
 # depth = 10
 
 # maxiter = 2000
-maxiter = 1000
+maxiter = 100
 ansatz = create_farhi_neven_ansatz(n_qubit, depth)
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)

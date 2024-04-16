@@ -9,25 +9,13 @@ from sklearn.metrics import mean_squared_error
 
 from scipy.optimize import minimize
 
-from quri_parts.circuit import QuantumCircuit, CNOT, UnboundParametricQuantumCircuit
+from quri_parts.circuit import UnboundParametricQuantumCircuit
 from quri_parts.core.operator import Operator, pauli_label
 from quri_parts.core.state import GeneralCircuitQuantumState
 
-from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
 from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
 
-from quri_parts.qiskit.backend import QiskitSamplingBackend
-from quri_parts.core.sampling import (
-    create_sampler_from_sampling_backend,
-    create_concurrent_sampler_from_sampling_backend,
-)
-from quri_parts.core.estimator.sampling import create_sampling_concurrent_estimator
-from quri_parts.core.measurement import bitwise_commuting_pauli_measurement
-from quri_parts.core.sampling.shots_allocator import (
-    create_equipartition_shots_allocator,
-)
-
-from qiskit_ibm_runtime import QiskitRuntimeService
+from quri_parts.riqu.backend import RiquSamplingBackend
 
 ansatz = None
 n_qubit = 4
@@ -36,21 +24,10 @@ seed = 0
 n_shots = 1000
 
 # qulacs
-if 1:
-    sampler = create_qulacs_vector_concurrent_sampler()
-    estimator = create_qulacs_vector_concurrent_estimator()
-else:
-    # IBMQ
-    service = QiskitRuntimeService()
-    # ibm_algiers / ibm_hanoi /ibmq_kolkata / ibm_cairo
-    device = service.backend("ibm_hanoi")
-    backend = QiskitSamplingBackend(device)
-    # sampler = create_sampler_from_sampling_backend(backend)
-    sampler = create_concurrent_sampler_from_sampling_backend(backend)
-    allocator = create_equipartition_shots_allocator()
-    estimator = create_sampling_concurrent_estimator(
-        n_shots, sampler, bitwise_commuting_pauli_measurement, allocator
-    )
+estimator = create_qulacs_vector_concurrent_estimator()
+
+# real machine
+backend = RiquSamplingBackend()
 
 
 def create_farhi_neven_ansatz(
@@ -87,29 +64,42 @@ def _predict_inner(
         circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
         observable = Operator(
             {
-                pauli_label("Z0"): 2.0,
+                pauli_label("Z0"): 1.0,
             }
         )
         v = estimator([observable], [circuit_state])[0].value.real
-        # v = estimator(observable, circuit_state).value.real
         res.append(v)
-
-        # sampling_result = sampler(circuit, shots=n_shots)
-        # counts = sampling_result
-        # # print(counts)
-        # # print(counts.get(0))
-
-        # if counts.get(0) is not None:
-        #     res.append(float(counts.get(0) / n_shots))
-        # else:
-        #     res.append(0.0)
-
     return np.array(res)
 
 
 def predict(x_test: NDArray[np.float_], theta: List[float]) -> NDArray[np.float_]:
     y_pred = _predict_inner(x_test, theta)
     return y_pred
+
+
+def predict_real(x_test: NDArray[np.float_], theta: List[float]) -> NDArray[np.float_]:
+    res = []
+    idx = 0
+    for x in x_test:
+        circuit = UnboundParametricQuantumCircuit(n_qubit)
+
+        for i in range(n_qubit):
+            circuit.add_RY_gate(i, np.arcsin(x) * 2)
+            circuit.add_RZ_gate(i, np.arccos(x * x) * 2)
+
+        bind_circuit = ansatz.bind_parameters(theta)
+        circuit = circuit.combine(bind_circuit)
+        job = backend.sample(circuit=circuit, n_shots=n_shots, remark=f"{idx} qcl: {x}")
+        counts = job.result().counts
+        v = 0.0
+        try:
+            v = counts.get(0) / n_shots
+            print(f"x={x}, y={v}, y_true={np.sin(np.pi * x)}")
+        except KeyError:
+            v = 0.0
+        res.append(v)
+        idx += 1
+    return np.array(res)
 
 
 def cost_func(
@@ -127,7 +117,8 @@ iter = 0
 
 def callback(xk):
     global iter
-    # print("callback {}: xk={}".format(iter, xk))
+    if iter % 100 == 0:
+        print("callback {}: xk={}".format(iter, xk))
     iter += 1
 
 
@@ -194,12 +185,13 @@ opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
 print("loss", opt_loss)
 
-y_pred = predict(x_test, opt_params)
+xx = x_test[:10]
+y_pred = predict_real(xx, opt_params)
 
 plt.plot(x_test, y_test, "o", label="Test")
 plt.plot(
-    np.sort(np.array(x_test).flatten()),
-    np.array(y_pred)[np.argsort(np.array(x_test).flatten())],
+    np.sort(np.array(xx).flatten()),
+    np.array(y_pred)[np.argsort(np.array(xx).flatten())],
     label="Prediction",
 )
 plt.legend()
