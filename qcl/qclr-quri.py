@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 from numpy.typing import NDArray
 
+import math
 import numpy as np
 from numpy.random import default_rng
 import matplotlib.pyplot as plt
@@ -16,41 +17,15 @@ from quri_parts.core.state import GeneralCircuitQuantumState
 from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
 from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
 
-from quri_parts.qiskit.backend import QiskitSamplingBackend
-from quri_parts.core.sampling import (
-    create_sampler_from_sampling_backend,
-    create_concurrent_sampler_from_sampling_backend,
-)
-from quri_parts.core.estimator.sampling import create_sampling_concurrent_estimator
-from quri_parts.core.measurement import bitwise_commuting_pauli_measurement
-from quri_parts.core.sampling.shots_allocator import (
-    create_equipartition_shots_allocator,
-)
-
-from qiskit_ibm_runtime import QiskitRuntimeService
 
 ansatz = None
-n_qubit = 4
-depth = 2
+n_qubit = 2
+depth = 1
 seed = 0
 n_shots = 1000
 
-# qulacs
-if 1:
-    sampler = create_qulacs_vector_concurrent_sampler()
-    estimator = create_qulacs_vector_concurrent_estimator()
-else:
-    # IBMQ
-    service = QiskitRuntimeService()
-    # ibm_algiers / ibm_hanoi /ibmq_kolkata / ibm_cairo
-    device = service.backend("ibm_hanoi")
-    backend = QiskitSamplingBackend(device)
-    # sampler = create_sampler_from_sampling_backend(backend)
-    sampler = create_concurrent_sampler_from_sampling_backend(backend)
-    allocator = create_equipartition_shots_allocator()
-    estimator = create_sampling_concurrent_estimator(
-        n_shots, sampler, bitwise_commuting_pauli_measurement, allocator
-    )
+sampler = create_qulacs_vector_concurrent_sampler()
+estimator = create_qulacs_vector_concurrent_estimator()
 
 
 def create_farhi_neven_ansatz(
@@ -84,25 +59,34 @@ def _predict_inner(
 
         bind_circuit = ansatz.bind_parameters(theta)
         circuit = circuit.combine(bind_circuit)
-        circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
-        observable = Operator(
-            {
-                pauli_label("Z0"): 2.0,
-            }
-        )
-        v = estimator([observable], [circuit_state])[0].value.real
-        # v = estimator(observable, circuit_state).value.real
-        res.append(v)
-
-        # sampling_result = sampler(circuit, shots=n_shots)
-        # counts = sampling_result
-        # # print(counts)
-        # # print(counts.get(0))
-
+        # circuit_state = GeneralCircuitQuantumState(n_qubit, circuit)
+        # observable = Operator(
+        #     {
+        #         pauli_label("Z0"): 2.0,
+        #     }
+        # )
+        # v = estimator([observable], [circuit_state])[0].value.real
+        # # v = estimator(observable, circuit_state).value.real
+        # res.append(v)
+        
+        sampling_result = sampler([(circuit, n_shots)])
+        counts = sampling_result[0]
         # if counts.get(0) is not None:
         #     res.append(float(counts.get(0) / n_shots))
         # else:
         #     res.append(0.0)
+
+        expectation = 0
+        for bitstring, count in counts.items():
+            if bitstring == 0 or bitstring == 1: 
+                #print("bitstring:", bitstring, " count:",count)
+                expectation += (-1)**int(bitstring) * count / n_shots
+        if expectation > 1:
+            expectation = 1.0
+        elif expectation < -1:
+            expectation = -1.0
+        #print("expectation:", expectation)
+        res.append(expectation*2.0)
 
     return np.array(res)
 
@@ -141,7 +125,8 @@ def run(
         cost_func,
         theta,
         args=(x, y),
-        method="Nelder-Mead",
+        #method="Nelder-Mead",
+        method='COBYLA',
         options={"maxiter": maxiter},
         callback=callback,
     )
@@ -157,7 +142,7 @@ def fit(
 ) -> Tuple[float, List[float]]:
     rng = default_rng(seed)
     theta_init = []
-    for _ in range(4 * 2 * depth):
+    for _ in range(n_qubit * 2 * depth):
         theta_init.append(2.0 * np.pi * rng.random())
 
     return run(
@@ -188,7 +173,7 @@ ansatz = create_farhi_neven_ansatz(n_qubit, depth, seed)
 
 # maxiter = 2000
 # maxiter = 1000
-maxiter = 500
+maxiter = 10
 # maxiter = 2
 opt_loss, opt_params = fit(x_train, y_train, maxiter)
 print("trained parameters", opt_params)
