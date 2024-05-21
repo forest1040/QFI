@@ -17,6 +17,11 @@ from quri_parts.core.state import GeneralCircuitQuantumState
 from quri_parts.qulacs.sampler import create_qulacs_vector_concurrent_sampler
 from quri_parts.qulacs.estimator import create_qulacs_vector_concurrent_estimator
 
+# from quri_parts.qiskit.backend.primitive import (
+#     QiskitRuntimeSamplingJob,
+#     QiskitRuntimeSamplingResult,
+# )
+
 
 ansatz = None
 n_qubit = 2
